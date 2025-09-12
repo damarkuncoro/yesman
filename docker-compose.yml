@@ -1,0 +1,142 @@
+# Docker Compose Configuration untuk YesMan Application
+# File ini mendefinisikan services: production, development, dan PostgreSQL database
+
+services:
+  # ========================================
+  # SERVICE DATABASE - PostgreSQL
+  # ========================================
+  # Database PostgreSQL untuk aplikasi YesMan
+  postgres:
+    image: postgres:15               # Menggunakan PostgreSQL 15 yang lebih kompatibel
+    
+    # Port mapping untuk akses database
+    ports:
+      - "5432:5432"                # Map port 5432 di host ke port 5432 di container
+    
+    # Environment variables untuk PostgreSQL
+    environment:
+      - POSTGRES_DB=yesman_db       # Nama database yang akan dibuat
+      - POSTGRES_USER=yesman_user   # Username untuk database
+      - POSTGRES_PASSWORD=yesman_password  # Password untuk database
+      - PGDATA=/var/lib/postgresql/data/pgdata  # Path data PostgreSQL
+    
+    # Volume mounts untuk persistensi data
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # Named volume untuk data PostgreSQL
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro  # Optional: SQL initialization script
+    
+    # Health check untuk memastikan database siap
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yesman_user -d yesman_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Network configuration
+    networks:
+      - yesman-network
+
+  # ========================================
+  # SERVICE PRODUCTION - YesMan App
+  # ========================================
+  # Service utama untuk menjalankan aplikasi Next.js dalam mode production
+  yesman-app:
+    # Build configuration
+    build:
+      context: .                    # Build context dari root directory
+      dockerfile: Dockerfile        # Menggunakan Dockerfile untuk production build
+    
+    # Port mapping: host:container
+    ports:
+      - "3010:3000"                # Map port 3010 di host ke port 3000 di container
+    
+    # Environment variables untuk production
+    environment:
+      - NODE_ENV=production         # Set environment ke production mode
+      - DATABASE_URL=postgresql://yesman_user:yesman_password@postgres:5432/yesman_db  # PostgreSQL connection string
+      - DB_HOST=postgres            # Database host (service name)
+      - DB_PORT=5432               # Database port
+      - DB_NAME=yesman_db          # Database name
+      - DB_USER=yesman_user        # Database username
+      - DB_PASSWORD=yesman_password # Database password
+    
+    # Dependencies - tunggu PostgreSQL siap sebelum start
+    depends_on:
+      postgres:
+        condition: service_healthy   # Tunggu sampai PostgreSQL health check berhasil
+    
+    # Restart policy: restart container kecuali jika dihentikan manual
+    restart: unless-stopped
+    
+    # Network configuration
+    networks:
+      - yesman-network              # Bergabung dengan custom network
+
+  # ========================================
+  # SERVICE DEVELOPMENT - YesMan Dev
+  # ========================================
+  # Service untuk development dengan hot reload dan debugging
+  yesman-dev:
+    # Build configuration untuk development
+    build:
+      context: .                    # Build context dari root directory
+      dockerfile: Dockerfile.dev    # Menggunakan Dockerfile khusus development
+    
+    # Port mapping untuk development server
+    ports:
+      - "3008:3000"                # Map port 3008 di host ke port 3000 di container
+    
+    # Environment variables untuk development
+    environment:
+      - NODE_ENV=development        # Set environment ke development mode
+      - DATABASE_URL=postgresql://yesman_user:yesman_password@postgres:5432/yesman_db  # PostgreSQL connection string
+      - DB_HOST=postgres            # Database host (service name)
+      - DB_PORT=5432               # Database port
+      - DB_NAME=yesman_db          # Database name
+      - DB_USER=yesman_user        # Database username
+      - DB_PASSWORD=yesman_password # Database password
+    
+    # Volume mounts untuk development workflow
+    volumes:
+      # Mount seluruh source code untuk hot reload
+      - .:/app                      # Mount root directory ke /app di container
+      - /app/node_modules           # Anonymous volume untuk node_modules (performance)
+      - /app/.next                  # Anonymous volume untuk .next build cache
+    
+    # Dependencies - tunggu PostgreSQL siap sebelum start
+    depends_on:
+      postgres:
+        condition: service_healthy   # Tunggu sampai PostgreSQL health check berhasil
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Network configuration
+    networks:
+      - yesman-network              # Bergabung dengan custom network
+    
+    # Profile configuration - hanya aktif saat profile 'dev' digunakan
+    profiles:
+      - dev                         # Service ini hanya berjalan dengan: docker-compose --profile dev up
+
+# ========================================
+# NETWORK CONFIGURATION
+# ========================================
+# Custom network untuk isolasi dan komunikasi antar container
+networks:
+  yesman-network:
+    driver: bridge                  # Menggunakan bridge driver untuk local networking
+
+# ========================================
+# VOLUME CONFIGURATION
+# ========================================
+# Named volumes untuk persistensi data
+volumes:
+  # Volume untuk database PostgreSQL
+  postgres_data:
+    driver: local                   # Local driver untuk penyimpanan data PostgreSQL di host machine
+    # Volume ini akan menyimpan semua data PostgreSQL secara persisten
+    # Data akan tetap ada meskipun container dihapus atau di-restart

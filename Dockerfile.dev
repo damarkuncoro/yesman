@@ -1,0 +1,32 @@
+# Dockerfile untuk Development Environment YesMan
+FROM node:20-alpine
+
+# Install dependencies yang diperlukan untuk better-sqlite3
+RUN apk add --no-cache libc6-compat python3 make g++
+
+WORKDIR /app
+
+# Enable pnpm
+RUN corepack enable pnpm
+
+# Copy package files
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
+
+# Install dependencies
+RUN pnpm install
+
+# Copy source code
+COPY . .
+
+# Generate database schema
+RUN pnpm run db:generate
+
+# Expose port
+EXPOSE 3000
+
+# Set environment
+ENV NODE_ENV=development
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Start development server
+CMD ["pnpm", "run", "dev"]
