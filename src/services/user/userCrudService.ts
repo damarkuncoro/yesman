@@ -7,10 +7,11 @@ import type { User, UserCreateInput } from "./types";
  * User CRUD Service yang menangani operasi CRUD dasar untuk user
  * Menerapkan Single Responsibility Principle - hanya menangani operasi CRUD
  * Mengextend BaseCrudService untuk konsistensi dan DRY principle
+ * Dilengkapi dengan debug tracking untuk development environment
  */
 export class UserCrudService extends BaseCrudService<User, UserCreateInput, Partial<UserCreateInput>> {
   constructor() {
-    super();
+    super('UserCrudService');
   }
 
   /**
@@ -20,7 +21,8 @@ export class UserCrudService extends BaseCrudService<User, UserCreateInput, Part
   async getAll(): Promise<User[]> {
     return this.executeWithErrorHandling(
       'get all users',
-      () => userRepository.findAll()
+      () => userRepository.findAll(),
+      { operation: 'fetch_all_users' }
     );
   }
 
@@ -35,7 +37,9 @@ export class UserCrudService extends BaseCrudService<User, UserCreateInput, Part
       async () => {
         const user = await userRepository.findById(id);
         return user || null;
-      }
+      },
+      { userId: id },
+      id
     );
   }
 

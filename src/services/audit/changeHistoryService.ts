@@ -306,5 +306,5 @@ export class ChangeHistoryService extends BaseService {
 
 // Export instance dengan dependency injection
 export const changeHistoryService = new ChangeHistoryService(
-  new ChangeHistoryRepository()
+  new ChangeHistoryRepository('ChangeHistoryRepository')
 );

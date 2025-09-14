@@ -9,6 +9,8 @@ import { Label } from "@/components/shadcn/ui/label"
 import { Alert, AlertDescription } from "@/components/shadcn/ui/alert"
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthForm, useAuthValidation, useAuthRedirect, authValidationRules, type LoginFormData } from '../_hook'
+import { RateLimitNotification, isRateLimitError } from "@/components/ui/RateLimitNotification";
+import { InvalidLoginNotification, isInvalidLoginError } from "@/components/ui/InvalidLoginNotification";
 
 /**
  * Komponen LoginForm yang terintegrasi dengan custom hooks
@@ -88,9 +90,15 @@ export function LoginForm({
               
               {/* Error Alert */}
               {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
+                isRateLimitError(error) ? (
+                  <RateLimitNotification message={error} />
+                ) : isInvalidLoginError(error) ? (
+                  <InvalidLoginNotification message={error} />
+                ) : (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )
               )}
               
               {/* Success Alert */}

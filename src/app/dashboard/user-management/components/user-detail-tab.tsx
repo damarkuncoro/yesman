@@ -14,36 +14,31 @@ import {
   TableRow,
 } from "@/components/shadcn/ui/table"
 import { IconEdit, IconSettings, IconUser, IconClock, IconShield } from "@tabler/icons-react"
+import { useAuth } from '@/contexts/AuthContext'
+import { toast } from "sonner"
 
 interface UserDetail {
-  id: string
-  email: string
-  name: string
-  roles: Array<{
-    id: string
+  user: {
+    id: number
+    email: string
     name: string
-    description: string
-    assignedAt: string
-  }>
-  department: string
-  region: string
-  level: string
-  status: 'active' | 'inactive'
-  createdAt: string
-  lastLogin: string
-  policies: Array<{
-    id: string
-    name: string
-    description: string
-    effect: 'allow' | 'deny'
-  }>
-  loginHistory: Array<{
-    id: string
-    timestamp: string
-    ipAddress: string
-    userAgent: string
-    success: boolean
-  }>
+    roles: Array<{
+      id: string
+      name: string
+      description: string
+    }>
+    department: string | null
+    region: string | null
+    active: boolean
+    level: number
+    createdAt: string
+    updatedAt: string
+    permissions: Array<{
+      featureId: string
+      featureName: string
+      featureDescription: string
+    }>
+  }
 }
 
 interface UserDetailTabProps {
@@ -59,8 +54,42 @@ interface UserDetailTabProps {
 export function UserDetailTab({ userId, onUserEdit, onRoleAssignment }: UserDetailTabProps) {
   const [userDetail, setUserDetail] = useState<UserDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const { accessToken } = useAuth()
 
-  // Mock data - nanti akan diganti dengan API call
+  /**
+   * Fetch user detail dari API
+   */
+  const fetchUserDetail = async (id: string) => {
+    if (!accessToken) return
+
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/users/${id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Gagal mengambil detail user')
+      }
+
+      if (result.success && result.data) {
+        setUserDetail(result.data)
+      }
+    } catch (error) {
+      console.error('Error fetching user detail:', error)
+      toast.error('Gagal mengambil detail user')
+      setUserDetail(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (!userId) {
       setUserDetail(null)
@@ -68,80 +97,8 @@ export function UserDetailTab({ userId, onUserEdit, onRoleAssignment }: UserDeta
       return
     }
 
-    const mockUserDetail: UserDetail = {
-      id: userId,
-      email: "admin@company.com",
-      name: "Admin User",
-      roles: [
-        {
-          id: "1",
-          name: "Admin",
-          description: "Full system administrator access",
-          assignedAt: "2023-01-01T00:00:00Z"
-        },
-        {
-          id: "2",
-          name: "Super User",
-          description: "Extended user privileges",
-          assignedAt: "2023-06-01T00:00:00Z"
-        }
-      ],
-      department: "IT",
-      region: "Jakarta",
-      level: "Senior",
-      status: "active",
-      createdAt: "2023-01-01T00:00:00Z",
-      lastLogin: "2024-01-15T10:30:00Z",
-      policies: [
-        {
-          id: "1",
-          name: "User Management",
-          description: "Can create, read, update, and delete users",
-          effect: "allow"
-        },
-        {
-          id: "2",
-          name: "System Settings",
-          description: "Can modify system configuration",
-          effect: "allow"
-        },
-        {
-          id: "3",
-          name: "Financial Data",
-          description: "Cannot access financial reports",
-          effect: "deny"
-        }
-      ],
-      loginHistory: [
-        {
-          id: "1",
-          timestamp: "2024-01-15T10:30:00Z",
-          ipAddress: "192.168.1.100",
-          userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          success: true
-        },
-        {
-          id: "2",
-          timestamp: "2024-01-14T15:45:00Z",
-          ipAddress: "192.168.1.100",
-          userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          success: true
-        },
-        {
-          id: "3",
-          timestamp: "2024-01-13T08:20:00Z",
-          ipAddress: "192.168.1.105",
-          userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-          success: false
-        }
-      ]
-    }
-
-    setTimeout(() => {
-      setUserDetail(mockUserDetail)
-      setLoading(false)
-    }, 500)
-  }, [userId])
+    fetchUserDetail(userId)
+  }, [userId, accessToken])
 
   /**
    * Render status badge dengan warna yang sesuai
@@ -154,27 +111,7 @@ export function UserDetailTab({ userId, onUserEdit, onRoleAssignment }: UserDeta
     )
   }
 
-  /**
-   * Render policy effect badge
-   */
-  const renderPolicyEffect = (effect: 'allow' | 'deny') => {
-    return (
-      <Badge variant={effect === 'allow' ? 'default' : 'destructive'}>
-        {effect === 'allow' ? 'Allow' : 'Deny'}
-      </Badge>
-    )
-  }
 
-  /**
-   * Render login success badge
-   */
-  const renderLoginSuccess = (success: boolean) => {
-    return (
-      <Badge variant={success ? 'default' : 'destructive'}>
-        {success ? 'Success' : 'Failed'}
-      </Badge>
-    )
-  }
 
   if (!userId) {
     return (
@@ -208,7 +145,8 @@ export function UserDetailTab({ userId, onUserEdit, onRoleAssignment }: UserDeta
       </Card>
     )
   }
-
+  console.log("User Details",  userDetail);
+  console.log("User Details? Region",  userDetail);
   return (
     <div className="space-y-6">
       {/* User Profile Card */}
@@ -218,14 +156,14 @@ export function UserDetailTab({ userId, onUserEdit, onRoleAssignment }: UserDeta
             <div className="flex items-center gap-3">
               <IconUser className="h-8 w-8" />
               <div>
-                <CardTitle>{userDetail.name}</CardTitle>
-                <CardDescription>{userDetail.email}</CardDescription>
+                <CardTitle>{userDetail?.user?.name}</CardTitle>
+                <CardDescription>{userDetail?.user?.email}</CardDescription>
               </div>
             </div>
             <div className="flex gap-2">
               <Button 
                 variant="outline" 
-                onClick={() => onUserEdit(userDetail.id)}
+                onClick={() => onUserEdit(userDetail?.user?.id.toString() || '')}
                 className="flex items-center gap-2"
               >
                 <IconEdit className="h-4 w-4" />
@@ -233,7 +171,7 @@ export function UserDetailTab({ userId, onUserEdit, onRoleAssignment }: UserDeta
               </Button>
               <Button 
                 variant="outline" 
-                onClick={() => onRoleAssignment(userDetail.id)}
+                onClick={() => onRoleAssignment(userDetail?.user?.id.toString() || '')}
                 className="flex items-center gap-2"
               >
                 <IconSettings className="h-4 w-4" />
@@ -243,30 +181,30 @@ export function UserDetailTab({ userId, onUserEdit, onRoleAssignment }: UserDeta
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Department</p>
-              <p className="text-sm">{userDetail.department}</p>
+              <p className="text-sm">{userDetail?.user?.department || 'N/A'}</p>
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Region</p>
-              <p className="text-sm">{userDetail.region}</p>
+              <p className="text-sm">{userDetail?.user?.region || 'N/A'}</p>
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Level</p>
-              <p className="text-sm">{userDetail.level}</p>
+              <p className="text-sm">{userDetail?.user?.level || 'N/A'}</p>
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Status</p>
-              <div className="mt-1">{renderStatusBadge(userDetail.status)}</div>
+              <div className="mt-1">{renderStatusBadge(userDetail?.user?.active ? 'active' : 'inactive')}</div>
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Created At</p>
-              <p className="text-sm">{new Date(userDetail.createdAt).toLocaleDateString('id-ID')}</p>
+              <p className="text-sm">{userDetail?.user?.createdAt ? new Date(userDetail.user.createdAt).toLocaleDateString('id-ID') : 'N/A'}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Last Login</p>
-              <p className="text-sm">{new Date(userDetail.lastLogin).toLocaleDateString('id-ID')}</p>
+              <p className="text-sm font-medium text-muted-foreground">Updated At</p>
+              <p className="text-sm">{userDetail?.user?.updatedAt ? new Date(userDetail.user.updatedAt).toLocaleDateString('id-ID') : 'N/A'}</p>
             </div>
           </div>
         </CardContent>
@@ -285,15 +223,17 @@ export function UserDetailTab({ userId, onUserEdit, onRoleAssignment }: UserDeta
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {userDetail.roles.map((role) => (
+            {userDetail?.user?.roles?.map((role) => (
               <div key={role.id} className="flex items-center justify-between p-3 border rounded-lg">
                 <div>
                   <p className="font-medium">{role.name}</p>
-                  <p className="text-sm text-muted-foreground">{role.description}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {role.description || 'No description available'}
+                  </p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-muted-foreground">
-                    Assigned: {new Date(role.assignedAt).toLocaleDateString('id-ID')}
+                    Role ID: {role.id}
                   </p>
                 </div>
               </div>
@@ -302,12 +242,12 @@ export function UserDetailTab({ userId, onUserEdit, onRoleAssignment }: UserDeta
         </CardContent>
       </Card>
 
-      {/* User Policies Card */}
+      {/* User Permissions Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Applied Policies</CardTitle>
+          <CardTitle>User Permissions</CardTitle>
           <CardDescription>
-            Policy yang berlaku untuk user berdasarkan role dan atribut ABAC
+            Permission yang dimiliki user berdasarkan role yang diberikan
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -315,17 +255,17 @@ export function UserDetailTab({ userId, onUserEdit, onRoleAssignment }: UserDeta
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Policy Name</TableHead>
+                  <TableHead>Feature ID</TableHead>
+                  <TableHead>Feature Name</TableHead>
                   <TableHead>Description</TableHead>
-                  <TableHead>Effect</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {userDetail.policies.map((policy) => (
-                  <TableRow key={policy.id}>
-                    <TableCell className="font-medium">{policy.name}</TableCell>
-                    <TableCell>{policy.description}</TableCell>
-                    <TableCell>{renderPolicyEffect(policy.effect)}</TableCell>
+                {userDetail?.user?.permissions?.map((permission) => (
+                  <TableRow key={permission.featureId}>
+                    <TableCell className="font-mono text-sm">{permission.featureId}</TableCell>
+                    <TableCell className="font-medium">{permission.featureName}</TableCell>
+                    <TableCell>{permission.featureDescription}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -334,46 +274,7 @@ export function UserDetailTab({ userId, onUserEdit, onRoleAssignment }: UserDeta
         </CardContent>
       </Card>
 
-      {/* Login History Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <IconClock className="h-5 w-5" />
-            <CardTitle>Login History</CardTitle>
-          </div>
-          <CardDescription>
-            Riwayat login user dalam 30 hari terakhir
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Timestamp</TableHead>
-                  <TableHead>IP Address</TableHead>
-                  <TableHead>User Agent</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {userDetail.loginHistory.map((login) => (
-                  <TableRow key={login.id}>
-                    <TableCell>
-                      {new Date(login.timestamp).toLocaleString('id-ID')}
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">{login.ipAddress}</TableCell>
-                    <TableCell className="max-w-xs truncate text-sm">
-                      {login.userAgent}
-                    </TableCell>
-                    <TableCell>{renderLoginSuccess(login.success)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+
     </div>
   )
 }

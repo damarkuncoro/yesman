@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/shadcn/ui/button"
 import { Input } from "@/components/shadcn/ui/input"
 import { Label } from "@/components/shadcn/ui/label"
@@ -33,32 +33,30 @@ import {
 } from "@/components/shadcn/ui/dialog"
 import { IconPlus, IconTrash, IconEdit, IconShield, IconSearch } from "@tabler/icons-react"
 import { toast } from "sonner"
+import { useAuth } from '@/contexts/AuthContext'
 
 interface User {
-  id: string
+  id: number
   email: string
   name: string
-  department: string
-  region: string
-  level: string
-  status: 'active' | 'inactive'
+  department: string | null
+  region: string | null
+  active: boolean
 }
 
 interface Role {
-  id: string
+  id: number
   name: string
-  description: string
-  permissions: string[]
+  grantsAll: boolean
+  createdAt: string
+  updatedAt?: string
 }
 
 interface UserRole {
-  id: string
-  userId: string
-  roleId: string
-  assignedAt: string
-  assignedBy: string
-  expiresAt?: string
-  status: 'active' | 'expired' | 'revoked'
+  id: number
+  userId: number
+  roleId: number
+  role: Role
 }
 
 interface UserRoleAssignmentTabProps {
@@ -70,144 +68,156 @@ interface UserRoleAssignmentTabProps {
  * Menangani assign, update, dan revoke role untuk user
  */
 export function UserRoleAssignmentTab({ selectedUserId }: UserRoleAssignmentTabProps) {
+  const { accessToken } = useAuth()
   const [users, setUsers] = useState<User[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [userRoles, setUserRoles] = useState<UserRole[]>([])
   const [selectedUser, setSelectedUser] = useState<string>(selectedUserId || '')
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(false)
+  const [dataLoading, setDataLoading] = useState(true)
   const [assignDialogOpen, setAssignDialogOpen] = useState(false)
   const [selectedRole, setSelectedRole] = useState('')
   const [expiryDate, setExpiryDate] = useState('')
 
-  // Mock data untuk users
-  useEffect(() => {
-    const mockUsers: User[] = [
-      {
-        id: '1',
-        email: 'admin@company.com',
-        name: 'Admin User',
-        department: 'IT',
-        region: 'Jakarta',
-        level: 'Senior',
-        status: 'active'
-      },
-      {
-        id: '2',
-        email: 'manager@company.com',
-        name: 'Manager User',
-        department: 'Sales',
-        region: 'Surabaya',
-        level: 'Manager',
-        status: 'active'
-      },
-      {
-        id: '3',
-        email: 'employee@company.com',
-        name: 'Employee User',
-        department: 'Marketing',
-        region: 'Bandung',
-        level: 'Junior',
-        status: 'active'
-      }
-    ]
-    setUsers(mockUsers)
-  }, [])
-
-  // Mock data untuk roles
-  useEffect(() => {
-    const mockRoles: Role[] = [
-      {
-        id: '1',
-        name: 'Admin',
-        description: 'Full system administrator access',
-        permissions: ['read', 'write', 'delete', 'admin']
-      },
-      {
-        id: '2',
-        name: 'Manager',
-        description: 'Department manager privileges',
-        permissions: ['read', 'write', 'manage_team']
-      },
-      {
-        id: '3',
-        name: 'Employee',
-        description: 'Standard employee access',
-        permissions: ['read', 'write_own']
-      },
-      {
-        id: '4',
-        name: 'Super User',
-        description: 'Extended user privileges',
-        permissions: ['read', 'write', 'advanced_features']
-      },
-      {
-        id: '5',
-        name: 'Viewer',
-        description: 'Read-only access',
-        permissions: ['read']
-      }
-    ]
-    setRoles(mockRoles)
-  }, [])
-
-  // Mock data untuk user roles
-  useEffect(() => {
-    if (selectedUser) {
-      const mockUserRoles: UserRole[] = [
-        {
-          id: '1',
-          userId: selectedUser,
-          roleId: '1',
-          assignedAt: '2024-01-15T10:00:00Z',
-          assignedBy: 'system@company.com',
-          status: 'active'
-        },
-        {
-          id: '2',
-          userId: selectedUser,
-          roleId: '4',
-          assignedAt: '2024-01-20T14:30:00Z',
-          assignedBy: 'admin@company.com',
-          expiresAt: '2024-12-31T23:59:59Z',
-          status: 'active'
+  // Fetch users dari API
+  const fetchUsers = async () => {
+    try {
+      setDataLoading(true)
+      const response = await fetch('/api/users', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
         }
-      ]
-      setUserRoles(mockUserRoles)
-    } else {
-      setUserRoles([])
+      })
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Raw users data:', data)
+        // Handle nested response format
+        const usersData = data.data || data.users || data
+        console.log('Processed users data:', usersData)
+        setUsers(Array.isArray(usersData) ? usersData : [])
+      } else {
+        console.error('Failed to fetch users:', response.status)
+        setUsers([])
+        toast.error('Gagal memuat data users')
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error)
+      setUsers([])
+      toast.error('Terjadi kesalahan saat memuat data users')
+    } finally {
+      setDataLoading(false)
     }
-  }, [selectedUser])
+  }
+
+  // Fetch roles dari API
+  const fetchRoles = async () => {
+    try {
+      const response = await fetch('/api/rbac/roles', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        // Handle nested response format
+        const rolesData = data.data || data.roles || data
+        setRoles(Array.isArray(rolesData) ? rolesData : [])
+      } else {
+        console.error('Failed to fetch roles:', response.status)
+        setRoles([])
+        toast.error('Gagal memuat data roles')
+      }
+    } catch (error) {
+      console.error('Error fetching roles:', error)
+      setRoles([])
+      toast.error('Terjadi kesalahan saat memuat data roles')
+    }
+  }
+
+  // Fetch user roles dari API
+  const fetchUserRoles = async (userId: number) => {
+    try {
+      const response = await fetch(`/api/rbac/users/${userId}/roles`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        // Handle nested response format
+        const userRolesData = data.data || data.userRoles || data.roles || data
+        setUserRoles(Array.isArray(userRolesData) ? userRolesData : [])
+      } else {
+        console.error('Failed to fetch user roles:', response.status)
+        setUserRoles([])
+        toast.error('Gagal memuat data user roles')
+      }
+    } catch (error) {
+      console.error('Error fetching user roles:', error)
+      setUserRoles([])
+      toast.error('Terjadi kesalahan saat memuat data user roles')
+    }
+  }
+
+  useEffect(() => {
+    if (accessToken) {
+      fetchUsers()
+      fetchRoles()
+    }
+  }, [accessToken])
+
+  useEffect(() => {
+    if (selectedUser && accessToken) {
+      fetchUserRoles(parseInt(selectedUser))
+    }
+  }, [selectedUser, accessToken])
 
   /**
    * Filter users berdasarkan search term
    */
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredUsers = useMemo(() => {
+    if (!Array.isArray(users) || users.length === 0) {
+      console.log('No users available for filtering')
+      return []
+    }
+    
+    const filtered = users.filter(user => {
+      if (!user || !user.name || !user.email) {
+        console.warn('Invalid user object:', user)
+        return false
+      }
+      
+      const matchesSearch = searchTerm === '' || 
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      
+      return matchesSearch && user.active === true
+    })
+    
+    console.log('Users state:', users)
+    console.log('Search term:', searchTerm)
+    console.log('Filtered users:', filtered)
+    
+    return filtered
+  }, [users, searchTerm])
 
   /**
    * Get role name by role ID
    */
-  const getRoleName = (roleId: string) => {
-    const role = roles.find(r => r.id === roleId)
+  const getRoleName = (roleId: number) => {
+    const role = Array.isArray(roles) ? roles.find(r => r.id === roleId) : undefined
     return role?.name || 'Unknown Role'
-  }
-
-  /**
-   * Get role description by role ID
-   */
-  const getRoleDescription = (roleId: string) => {
-    const role = roles.find(r => r.id === roleId)
-    return role?.description || ''
   }
 
   /**
    * Get user name by user ID
    */
-  const getUserName = (userId: string) => {
-    const user = users.find(u => u.id === userId)
+  const getUserName = (userId: number) => {
+    const user = Array.isArray(users) ? users.find(u => u.id === userId) : undefined
     return user?.name || 'Unknown User'
   }
 
@@ -215,8 +225,9 @@ export function UserRoleAssignmentTab({ selectedUserId }: UserRoleAssignmentTabP
    * Get available roles untuk assignment (yang belum di-assign)
    */
   const getAvailableRoles = () => {
+    if (!Array.isArray(roles) || !Array.isArray(userRoles)) return []
     const assignedRoleIds = userRoles
-      .filter(ur => ur.status === 'active')
+      .filter(ur => ur.role)
       .map(ur => ur.roleId)
     return roles.filter(role => !assignedRoleIds.includes(role.id))
   }
@@ -226,33 +237,39 @@ export function UserRoleAssignmentTab({ selectedUserId }: UserRoleAssignmentTabP
    */
   const handleAssignRole = async () => {
     if (!selectedUser || !selectedRole) {
-      toast.error('Please select user and role')
+      toast.error('Please select both user and role')
       return
     }
 
     setLoading(true)
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const response = await fetch('/api/rbac/user-roles', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: parseInt(selectedUser),
+          roleId: parseInt(selectedRole),
+          expiresAt: expiryDate || null
+        })
+      })
       
-      const newUserRole: UserRole = {
-        id: Date.now().toString(),
-        userId: selectedUser,
-        roleId: selectedRole,
-        assignedAt: new Date().toISOString(),
-        assignedBy: 'current-user@company.com',
-        expiresAt: expiryDate || undefined,
-        status: 'active'
+      if (response.ok) {
+        await fetchUserRoles(parseInt(selectedUser))
+        setAssignDialogOpen(false)
+        setSelectedRole('')
+        setExpiryDate('')
+        
+        toast.success(`Role ${getRoleName(parseInt(selectedRole))} assigned to ${getUserName(parseInt(selectedUser))}`)
+      } else {
+        const errorData = await response.json()
+        toast.error(errorData.message || 'Failed to assign role')
       }
-      
-      setUserRoles(prev => [...prev, newUserRole])
-      setAssignDialogOpen(false)
-      setSelectedRole('')
-      setExpiryDate('')
-      
-      toast.success(`Role ${getRoleName(selectedRole)} assigned to ${getUserName(selectedUser)}`)
     } catch (error) {
+      console.error('Error assigning role:', error)
       toast.error('Failed to assign role. Please try again.')
     } finally {
       setLoading(false)
@@ -262,23 +279,31 @@ export function UserRoleAssignmentTab({ selectedUserId }: UserRoleAssignmentTabP
   /**
    * Handle revoke role dari user
    */
-  const handleRevokeRole = async (userRoleId: string, roleId: string) => {
+  const handleRevokeRole = async (userRoleId: number, roleId: number) => {
     setLoading(true)
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const response = await fetch('/api/rbac/user-roles', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: parseInt(selectedUser),
+          roleId: roleId
+        })
+      })
       
-      setUserRoles(prev => 
-        prev.map(ur => 
-          ur.id === userRoleId 
-            ? { ...ur, status: 'revoked' as const }
-            : ur
-        )
-      )
-      
-      toast.success(`Role ${getRoleName(roleId)} revoked from ${getUserName(selectedUser)}`)
+      if (response.ok) {
+        await fetchUserRoles(parseInt(selectedUser))
+        toast.success(`Role ${getRoleName(roleId)} revoked from ${getUserName(parseInt(selectedUser))}`)
+      } else {
+        const errorData = await response.json()
+        toast.error(errorData.message || 'Failed to revoke role')
+      }
     } catch (error) {
+      console.error('Error revoking role:', error)
       toast.error('Failed to revoke role. Please try again.')
     } finally {
       setLoading(false)
@@ -292,26 +317,8 @@ export function UserRoleAssignmentTab({ selectedUserId }: UserRoleAssignmentTabP
     return new Date(dateString).toLocaleDateString('id-ID', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      day: 'numeric'
     })
-  }
-
-  /**
-   * Get status badge variant
-   */
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'default'
-      case 'expired':
-        return 'secondary'
-      case 'revoked':
-        return 'destructive'
-      default:
-        return 'outline'
-    }
   }
 
   return (
@@ -349,14 +356,24 @@ export function UserRoleAssignmentTab({ selectedUserId }: UserRoleAssignmentTabP
                   <SelectValue placeholder="Select a user" />
                 </SelectTrigger>
                 <SelectContent>
-                  {filteredUsers.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      <div className="flex flex-col">
-                        <span>{user.name}</span>
-                        <span className="text-xs text-muted-foreground">{user.email}</span>
-                      </div>
+                  {dataLoading ? (
+                    <SelectItem value="loading" disabled>
+                      Loading users...
                     </SelectItem>
-                  ))}
+                  ) : filteredUsers.length === 0 ? (
+                    <SelectItem value="no-users" disabled>
+                      {searchTerm ? 'No users found matching search' : 'No users available'}
+                    </SelectItem>
+                  ) : (
+                    filteredUsers.map((user) => (
+                      <SelectItem key={user.id} value={user.id.toString()}>
+                        <div className="flex flex-col">
+                          <span>{user.name}</span>
+                          <span className="text-xs text-muted-foreground">{user.email}</span>
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -370,7 +387,7 @@ export function UserRoleAssignmentTab({ selectedUserId }: UserRoleAssignmentTabP
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Current Roles for {getUserName(selectedUser)}</CardTitle>
+                <CardTitle>Current Roles for {selectedUser ? getUserName(parseInt(selectedUser)) : 'No User Selected'}</CardTitle>
                 <CardDescription>
                   Manage roles assigned to this user
                 </CardDescription>
@@ -386,7 +403,7 @@ export function UserRoleAssignmentTab({ selectedUserId }: UserRoleAssignmentTabP
                   <DialogHeader>
                     <DialogTitle>Assign New Role</DialogTitle>
                     <DialogDescription>
-                      Select a role to assign to {getUserName(selectedUser)}
+                      Select a role to assign to {selectedUser ? getUserName(parseInt(selectedUser)) : 'No User Selected'}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
@@ -398,12 +415,9 @@ export function UserRoleAssignmentTab({ selectedUserId }: UserRoleAssignmentTabP
                         </SelectTrigger>
                         <SelectContent>
                           {getAvailableRoles().map((role) => (
-                            <SelectItem key={role.id} value={role.id}>
+                            <SelectItem key={role.id} value={role.id.toString()}>
                               <div className="flex flex-col">
                                 <span>{role.name}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {role.description}
-                                </span>
                               </div>
                             </SelectItem>
                           ))}
@@ -457,43 +471,41 @@ export function UserRoleAssignmentTab({ selectedUserId }: UserRoleAssignmentTabP
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {userRoles.map((userRole) => (
+                  {Array.isArray(userRoles) ? userRoles.map((userRole) => (
                     <TableRow key={userRole.id}>
                       <TableCell className="font-medium">
-                        {getRoleName(userRole.roleId)}
+                        {userRole.role.name}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {getRoleDescription(userRole.roleId)}
+                        {userRole.role.grantsAll ? 'Full Access' : 'Limited Access'}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {formatDate(userRole.assignedAt)}
+                        {formatDate(userRole.role.createdAt)}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {userRole.assignedBy}
+                        System
                       </TableCell>
                       <TableCell className="text-sm">
-                        {userRole.expiresAt ? formatDate(userRole.expiresAt) : 'Never'}
+                        Never
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getStatusVariant(userRole.status)}>
-                          {userRole.status}
+                        <Badge variant="default">
+                          active
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        {userRole.status === 'active' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleRevokeRole(userRole.id, userRole.roleId)}
-                            disabled={loading}
-                          >
-                            <IconTrash className="h-4 w-4 mr-2" />
-                            Revoke
-                          </Button>
-                        )}
+                        <Button
+                           variant="outline"
+                           size="sm"
+                           onClick={() => handleRevokeRole(userRole.id, userRole.role.id)}
+                           disabled={loading}
+                         >
+                           <IconTrash className="h-4 w-4 mr-2" />
+                           Revoke
+                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )) : null}
                 </TableBody>
               </Table>
             )}
@@ -511,27 +523,20 @@ export function UserRoleAssignmentTab({ selectedUserId }: UserRoleAssignmentTabP
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {roles.map((role) => (
+            {Array.isArray(roles) ? roles.map((role) => (
               <div key={role.id} className="p-4 border rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
                   <IconShield className="h-4 w-4" />
                   <h4 className="font-medium">{role.name}</h4>
                 </div>
-                <p className="text-sm text-muted-foreground mb-3">
-                  {role.description}
-                </p>
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Permissions:</p>
-                  <div className="flex flex-wrap gap-1">
-                    {role.permissions.map((permission) => (
-                      <Badge key={permission} variant="outline" className="text-xs">
-                        {permission}
-                      </Badge>
-                    ))}
-                  </div>
+                  <p className="text-xs font-medium text-muted-foreground">Access Level:</p>
+                  <Badge variant={role.grantsAll ? "default" : "secondary"} className="text-xs">
+                    {role.grantsAll ? "Full Access" : "Limited Access"}
+                  </Badge>
                 </div>
               </div>
-            ))}
+            )) : null}
           </div>
         </CardContent>
       </Card>

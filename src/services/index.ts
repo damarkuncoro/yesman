@@ -8,7 +8,7 @@
 export { ServiceFactory } from './serviceFactory';
 
 // Export individual services untuk direct import
-export { UserService } from './userService';
+export { UserService } from './user/userService';
 export { AuthService } from '../lib/auth/authService';
 export { 
   RoleService, 
@@ -17,9 +17,12 @@ export {
   RoleFeatureService, 
   RouteFeatureService, 
   RBACService 
-} from './rbacService';
-export { AbacService } from './abacService';
-export { AuditService } from './auditService';
+} from './rbac';
+export { AbacService } from './abac/abacService';
+export { AuditService } from './audit/auditService';
+export { dashboardService } from './dashboard/dashboardService';
+export { RouteDiscoveryService } from './discovery/routeDiscoveryService';
+export { routeDiscovery } from './discovery';
 // HybridAuthService telah deprecated, gunakan AuthService
 
 // Export utility services (unified)

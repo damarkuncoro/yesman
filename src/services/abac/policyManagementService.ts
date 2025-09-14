@@ -296,7 +296,7 @@ export class PolicyManagementService extends BaseService {
 
 // Export instance untuk digunakan di service lain
 export const policyManagementService = new PolicyManagementService(
-  new PolicyRepository(),
+  new PolicyRepository('PolicyRepository'),
   new PolicyComparisonService(),
   new ValidationService(),
   new ErrorHandler()

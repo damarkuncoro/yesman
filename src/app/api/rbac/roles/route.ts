@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { roleService } from "@/services/rbacService";
+import { roleService } from "@/services";
 import { authorizationMiddleware } from "@/middleware/authorizationMiddleware";
 
 /**

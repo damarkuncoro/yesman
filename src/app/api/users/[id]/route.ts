@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { userService } from "@/services/userService";
+import { userService } from '@/services';
 import { withFeature, getUserFromRequest } from "@/lib/withFeature";
 import { userRepository } from "@/repositories";
 import { db } from "@/db";

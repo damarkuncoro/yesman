@@ -1,10 +1,17 @@
 import { db } from "@/db";
+import { debugRepository, debugError, debugTime } from "@/lib/debug/debugLogger";
 
 /**
  * Abstract base repository class yang menyediakan fungsionalitas umum
  * Mengikuti prinsip DRY dan SOLID - Single Responsibility Principle
+ * Dilengkapi dengan debug tracking untuk development environment
  */
 export abstract class BaseRepository {
+  protected readonly moduleName: string;
+
+  constructor(moduleName: string) {
+    this.moduleName = moduleName;
+  }
   /**
    * Memvalidasi bahwa database telah diinisialisasi
    * @throws Error jika database tidak tersedia
@@ -32,21 +39,44 @@ export abstract class BaseRepository {
   }
 
   /**
-   * Wrapper untuk operasi database dengan error handling otomatis
+   * Wrapper untuk operasi database dengan error handling otomatis dan debug tracking
    * @param operation - Nama operasi untuk logging
    * @param dbOperation - Fungsi operasi database
+   * @param data - Data yang akan dilog untuk debugging
+   * @param userId - ID user untuk tracking
    * @returns Promise dengan hasil operasi
    */
   protected async executeWithErrorHandling<T>(
     operation: string,
-    dbOperation: () => Promise<T>
+    dbOperation: () => Promise<T>,
+    data?: any,
+    userId?: string | number
   ): Promise<T> {
-    try {
-      this.validateDatabase();
-      return await dbOperation();
-    } catch (error) {
-      return this.handleDatabaseError(error, operation);
-    }
+    return debugTime(
+      'REPOSITORY',
+      this.moduleName,
+      operation,
+      `Database operation: ${operation}`,
+      async () => {
+        try {
+          this.validateDatabase();
+          debugRepository(this.moduleName, operation, `Starting ${operation}`, data, userId);
+          
+          const result = await dbOperation();
+          
+          debugRepository(this.moduleName, operation, `Completed ${operation}`, { 
+            resultCount: Array.isArray(result) ? result.length : result ? 1 : 0,
+            hasResult: !!result 
+          }, userId);
+          
+          return result;
+        } catch (error) {
+          debugError('REPOSITORY', this.moduleName, operation, `Failed ${operation}`, error as Error, data, userId);
+          return this.handleDatabaseError(error, operation);
+        }
+      },
+      userId
+    );
   }
 
   /**

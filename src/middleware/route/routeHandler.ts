@@ -58,6 +58,7 @@ export class RouteHandler {
       const authError = await this.authorizationHandler.validateRouteAuthorization(
         authResult.userContext,
         pathname,
+        request.method,
         requiredAction
       );
 

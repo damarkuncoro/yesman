@@ -20,18 +20,19 @@ import {
 import { Badge } from "@/components/shadcn/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shadcn/ui/card"
 import { IconDots, IconPlus, IconSearch, IconUserPlus } from "@tabler/icons-react"
+import { toast } from "sonner"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface User {
-  id: string
+  id: number
   email: string
   name: string
-  roles: string[]
-  department: string
-  region: string
-  level: string
-  status: 'active' | 'inactive'
-  lastLogin: string
+  department: string | null
+  region: string | null
+  level: string | null
+  active: boolean
   createdAt: string
+  updatedAt: string
 }
 
 interface UserListTabProps {
@@ -56,90 +57,86 @@ export function UserListTab({
   const [searchTerm, setSearchTerm] = useState("")
   const [filteredUsers, setFilteredUsers] = useState<User[]>([])
 
-  // Mock data - nanti akan diganti dengan API call
-  useEffect(() => {
-    const mockUsers: User[] = [
-      {
-        id: "1",
-        email: "admin@company.com",
-        name: "Admin User",
-        roles: ["Admin", "Super User"],
-        department: "IT",
-        region: "Jakarta",
-        level: "Senior",
-        status: "active",
-        lastLogin: "2024-01-15 10:30:00",
-        createdAt: "2023-01-01"
-      },
-      {
-        id: "2",
-        email: "manager@company.com",
-        name: "Manager User",
-        roles: ["Manager"],
-        department: "Sales",
-        region: "Surabaya",
-        level: "Manager",
-        status: "active",
-        lastLogin: "2024-01-14 15:45:00",
-        createdAt: "2023-02-15"
-      },
-      {
-        id: "3",
-        email: "employee@company.com",
-        name: "Employee User",
-        roles: ["Employee"],
-        department: "Marketing",
-        region: "Bandung",
-        level: "Junior",
-        status: "inactive",
-        lastLogin: "2024-01-10 09:15:00",
-        createdAt: "2023-06-01"
-      }
-    ]
-    
-    setTimeout(() => {
-      setUsers(mockUsers)
-      setFilteredUsers(mockUsers)
+  const { accessToken } = useAuth()
+
+  /**
+   * Fetch users dari API
+   */
+  const fetchUsers = async () => {
+    if (!accessToken) {
+      toast.error('Token akses tidak tersedia')
       setLoading(false)
-    }, 1000)
-  }, [])
+      return
+    }
+
+    try {
+      setLoading(true)
+      const response = await fetch('/api/users', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Gagal mengambil data users')
+      }
+
+      if (result.success && result.data?.users) {
+        setUsers(result.data.users)
+        setFilteredUsers(result.data.users)
+      } else {
+        throw new Error('Format response tidak valid')
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error)
+      toast.error(error instanceof Error ? error.message : 'Gagal mengambil data users')
+      setUsers([])
+      setFilteredUsers([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchUsers()
+  }, [accessToken])
 
   /**
    * Filter users berdasarkan search term
    */
   useEffect(() => {
-    const filtered = users.filter(user => 
+    const filtered = Array.isArray(users) ? users.filter(user => 
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.region.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+      (user.department && user.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (user.region && user.region.toLowerCase().includes(searchTerm.toLowerCase()))
+    ) : []
     setFilteredUsers(filtered)
   }, [searchTerm, users])
 
   /**
    * Render status badge dengan warna yang sesuai
    */
-  const renderStatusBadge = (status: 'active' | 'inactive') => {
+  const renderStatusBadge = (active: boolean) => {
     return (
-      <Badge variant={status === 'active' ? 'default' : 'secondary'}>
-        {status === 'active' ? 'Active' : 'Inactive'}
+      <Badge variant={active ? 'default' : 'secondary'}>
+        {active ? 'Active' : 'Inactive'}
       </Badge>
     )
   }
 
   /**
-   * Render roles sebagai badges
+   * Render placeholder untuk roles (akan diambil dari API terpisah jika diperlukan)
    */
-  const renderRoles = (roles: string[]) => {
+  const renderRoles = () => {
     return (
-      <div className="flex flex-wrap gap-1">
-        {roles.map((role, index) => (
-          <Badge key={index} variant="outline" className="text-xs">
-            {role}
-          </Badge>
-        ))}
-      </div>
+      <Badge variant="outline" className="text-xs">
+        User
+      </Badge>
     )
   }
 
@@ -191,12 +188,12 @@ export function UserListTab({
               <TableRow>
                 <TableHead>Email</TableHead>
                 <TableHead>Name</TableHead>
-                <TableHead>Roles</TableHead>
+                <TableHead>Role</TableHead>
                 <TableHead>Department</TableHead>
                 <TableHead>Region</TableHead>
                 <TableHead>Level</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Last Login</TableHead>
+                <TableHead>Created At</TableHead>
                 <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -212,17 +209,17 @@ export function UserListTab({
                   <TableRow 
                     key={user.id} 
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => onUserSelect(user.id)}
+                    onClick={() => onUserSelect(user.id.toString())}
                   >
                     <TableCell className="font-medium">{user.email}</TableCell>
                     <TableCell>{user.name}</TableCell>
-                    <TableCell>{renderRoles(user.roles)}</TableCell>
-                    <TableCell>{user.department}</TableCell>
-                    <TableCell>{user.region}</TableCell>
-                    <TableCell>{user.level}</TableCell>
-                    <TableCell>{renderStatusBadge(user.status)}</TableCell>
+                    <TableCell>{renderRoles()}</TableCell>
+                    <TableCell>{user.department || '-'}</TableCell>
+                    <TableCell>{user.region || '-'}</TableCell>
+                    <TableCell>{user.level || '-'}</TableCell>
+                    <TableCell>{renderStatusBadge(user.active)}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {new Date(user.lastLogin).toLocaleDateString('id-ID')}
+                      {new Date(user.createdAt).toLocaleDateString('id-ID')}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -238,19 +235,19 @@ export function UserListTab({
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={(e) => {
                             e.stopPropagation()
-                            onUserSelect(user.id)
+                            onUserSelect(user.id.toString())
                           }}>
                             View Details
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={(e) => {
                             e.stopPropagation()
-                            onUserEdit(user.id)
+                            onUserEdit(user.id.toString())
                           }}>
                             Edit User
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={(e) => {
                             e.stopPropagation()
-                            onRoleAssignment(user.id)
+                            onRoleAssignment(user.id.toString())
                           }}>
                             Manage Roles
                           </DropdownMenuItem>

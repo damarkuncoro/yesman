@@ -12,6 +12,8 @@ let pool: Pool | null = null;
 // Hanya inisialisasi database jika bukan saat build time
 if (process.env.NODE_ENV !== 'production' || process.env.SKIP_DB_INIT !== 'true') {
   try {
+    console.log('🔄 Initializing database connection...');
+    
     /**
      * Konfigurasi connection pool PostgreSQL
      * Menggunakan environment variables untuk kredensial database
@@ -27,13 +29,17 @@ if (process.env.NODE_ENV !== 'production' || process.env.SKIP_DB_INIT !== 'true'
     
     // Test koneksi database
     pool.on('error', (err) => {
-      console.error('Unexpected error on idle client', err);
+      console.error('❌ Unexpected error on idle client', err);
     });
     
+    console.log('✅ Database initialization completed successfully');
+    
   } catch (error) {
-    console.warn('Database initialization skipped during build:', error);
+    console.warn('⚠️ Database initialization skipped during build:', error);
     pool = null;
   }
+} else {
+  console.log('⏭️ Database initialization skipped (build time)');
 }
 
 export const db = pool ? drizzle(pool, { schema }) : null;

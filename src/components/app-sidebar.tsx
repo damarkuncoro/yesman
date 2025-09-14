@@ -73,7 +73,12 @@ const data = {
     {
       title: "Policy Management",
       url: "/dashboard/policy-management",
-      icon: IconShield,
+      icon: IconInnerShadowTop,
+    },
+    {
+      title: "Audit Monitoring",
+      url: "/dashboard/audit-monitoring",
+      icon: IconReport,
     },
     {
       title: "Lifecycle",

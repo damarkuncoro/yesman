@@ -230,4 +230,4 @@ export class RoleFeatureRepository extends BaseRepository implements CrudReposit
 }
 
 // Export instance untuk backward compatibility
-export const roleFeatureRepository = new RoleFeatureRepository();
+export const roleFeatureRepository = new RoleFeatureRepository('RoleFeatureRepository');

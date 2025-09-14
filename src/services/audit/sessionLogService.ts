@@ -286,5 +286,5 @@ export class SessionLogService extends BaseService {
 
 // Export instance dengan dependency injection
 export const sessionLogService = new SessionLogService(
-  new SessionRepository()
+  new SessionRepository('SessionRepository')
 );

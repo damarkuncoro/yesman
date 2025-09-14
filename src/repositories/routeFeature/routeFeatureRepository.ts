@@ -1,6 +1,6 @@
 import { eq, and, count, like } from "drizzle-orm";
 import { db } from "@/db";
-import { routeFeatures, type RouteFeature, type NewRouteFeature } from "@/db/schema";
+import { routeFeatures, features, type RouteFeature, type NewRouteFeature } from "@/db/schema";
 import { BaseRepository, CrudRepository, CountableRepository } from "../base/baseRepository";
 
 /**
@@ -16,6 +16,26 @@ export class RouteFeatureRepository extends BaseRepository implements CrudReposi
   async findAll(): Promise<RouteFeature[]> {
     return this.executeWithErrorHandling('fetch all route features', async () => {
       return await db!.select().from(routeFeatures);
+    });
+  }
+
+  /**
+   * Mengambil semua route feature dengan informasi feature (join)
+   * @returns Promise<Array> - Array route feature dengan nama feature
+   */
+  async findAllWithFeatures(): Promise<Array<RouteFeature & { feature: { name: string } | null }>> {
+    return this.executeWithErrorHandling('fetch all route features with features', async () => {
+      return await db!.select({
+        id: routeFeatures.id,
+        path: routeFeatures.path,
+        method: routeFeatures.method,
+        featureId: routeFeatures.featureId,
+        feature: {
+          name: features.name
+        }
+      })
+      .from(routeFeatures)
+      .leftJoin(features, eq(routeFeatures.featureId, features.id));
     });
   }
 
@@ -224,25 +244,48 @@ export class RouteFeatureRepository extends BaseRepository implements CrudReposi
 
   /**
    * Mencari route feature yang cocok dengan path menggunakan pattern matching
-   * Berguna untuk route matching dalam aplikasi
-   * @param requestPath - Path request yang akan dicocokkan
+   * Berguna untuk route matching dalam aplikasi dengan dynamic routes
+   * @param requestPath - Path request yang akan dicocokkan (contoh: /api/rbac/user-permissions/20)
    * @param method - HTTP method (optional)
    * @returns Promise<RouteFeature[]> - Array route feature yang cocok
    */
   async findMatchingRoutes(requestPath: string, method?: string): Promise<RouteFeature[]> {
     return this.executeWithErrorHandling('find matching routes', async () => {
-      // Implementasi sederhana - bisa diperluas untuk pattern matching yang lebih kompleks
-      if (method) {
-        return await db!.select().from(routeFeatures)
-          .where(and(
-            eq(routeFeatures.method, method),
-            eq(routeFeatures.path, requestPath)
-          ));
-      } else {
-        return await db!.select().from(routeFeatures)
-          .where(eq(routeFeatures.path, requestPath));
+      // Pertama coba exact match
+      let routes = await this.findByPathAndMethod(requestPath, method);
+      if (routes) {
+        return [routes];
       }
+
+      // Jika tidak ada exact match, coba pattern matching untuk dynamic routes
+      const allRoutes = method 
+        ? await db!.select().from(routeFeatures).where(eq(routeFeatures.method, method))
+        : await db!.select().from(routeFeatures);
+
+      // Filter routes yang cocok dengan pattern
+      const matchingRoutes = allRoutes.filter(route => {
+        return this.matchesRoutePattern(route.path, requestPath);
+      });
+
+      return matchingRoutes;
     });
+  }
+
+  /**
+   * Mengecek apakah request path cocok dengan route pattern
+   * @param routePattern - Pattern route dari database (contoh: /api/rbac/user-permissions/:id)
+   * @param requestPath - Path request yang akan dicocokkan (contoh: /api/rbac/user-permissions/20)
+   * @returns boolean - true jika cocok
+   */
+  private matchesRoutePattern(routePattern: string, requestPath: string): boolean {
+    // Konversi pattern menjadi regex
+    // :id, :userId, dll menjadi [^/]+ (match any character except slash)
+    const regexPattern = routePattern
+      .replace(/:[^/]+/g, '[^/]+') // Replace :id, :userId, etc dengan [^/]+
+      .replace(/\//g, '\\/'); // Escape forward slashes
+    
+    const regex = new RegExp(`^${regexPattern}$`);
+    return regex.test(requestPath);
   }
 
   /**
@@ -260,4 +303,4 @@ export class RouteFeatureRepository extends BaseRepository implements CrudReposi
 }
 
 // Export instance untuk backward compatibility
-export const routeFeatureRepository = new RouteFeatureRepository();
+export const routeFeatureRepository = new RouteFeatureRepository('RouteFeatureRepository');

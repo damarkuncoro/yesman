@@ -17,23 +17,27 @@ import { Separator } from "@/components/shadcn/ui/separator"
 import { Badge } from "@/components/shadcn/ui/badge"
 import { IconDeviceFloppy, IconX, IconUser, IconLock, IconShield } from "@tabler/icons-react"
 import { toast } from "sonner"
+import { useAuth } from '@/contexts/AuthContext';
 
 interface UserFormData {
-  email: string
+  id?: string
   name: string
-  password: string
-  confirmPassword: string
+  email: string
+  password?: string
+  confirmPassword?: string
   department: string
   region: string
-  level: string
+  level?: string
   status: 'active' | 'inactive'
   roles: string[]
 }
 
 interface Role {
-  id: string
+  id: number
   name: string
-  description: string
+  grantsAll: boolean
+  createdAt: string
+  updatedAt?: string
 }
 
 interface UserCreateEditTabProps {
@@ -47,7 +51,9 @@ interface UserCreateEditTabProps {
  * Menangani form input untuk user data, password, dan role assignment
  */
 export function UserCreateEditTab({ userId, mode, onSuccess }: UserCreateEditTabProps) {
+  const { accessToken } = useAuth()
   const [loading, setLoading] = useState(false)
+  const [loadingData, setLoadingData] = useState(false)
   const [formData, setFormData] = useState<UserFormData>({
     email: '',
     name: '',
@@ -62,34 +68,89 @@ export function UserCreateEditTab({ userId, mode, onSuccess }: UserCreateEditTab
   const [availableRoles, setAvailableRoles] = useState<Role[]>([])
   const [errors, setErrors] = useState<Partial<UserFormData>>({})
 
-  // Mock data untuk roles
+  /**
+   * Fetch roles dari API
+   */
+  const fetchRoles = async () => {
+    if (!accessToken) return
+
+    try {
+      const response = await fetch('/api/rbac/roles', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Gagal mengambil data roles')
+      }
+
+      if (result.success && result.data) {
+        setAvailableRoles(result.data)
+      }
+    } catch (error) {
+      console.error('Error fetching roles:', error)
+      toast.error('Gagal mengambil data roles')
+    }
+  }
+
+  /**
+   * Fetch user data untuk edit mode
+   */
+  const fetchUserData = async (id: string) => {
+    if (!accessToken) return
+
+    try {
+      setLoadingData(true)
+      const response = await fetch(`/api/users/${id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Gagal mengambil data user')
+      }
+
+      if (result.success && result.data?.user) {
+        const user = result.data.user
+        setFormData({
+          email: user.email,
+          name: user.name,
+          password: '', // Password tidak di-load untuk security
+          confirmPassword: '',
+          department: user.department || '',
+          region: user.region || '',
+          level: user.level || '',
+          status: user.active ? 'active' : 'inactive',
+          roles: user.roles?.map((role: any) => role.id.toString()) || []
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error)
+      toast.error('Gagal mengambil data user')
+    } finally {
+      setLoadingData(false)
+    }
+  }
+
+  // Fetch roles saat komponen mount
   useEffect(() => {
-    const mockRoles: Role[] = [
-      { id: '1', name: 'Admin', description: 'Full system administrator access' },
-      { id: '2', name: 'Manager', description: 'Department manager privileges' },
-      { id: '3', name: 'Employee', description: 'Standard employee access' },
-      { id: '4', name: 'Super User', description: 'Extended user privileges' },
-      { id: '5', name: 'Viewer', description: 'Read-only access' }
-    ]
-    setAvailableRoles(mockRoles)
-  }, [])
+    fetchRoles()
+  }, [accessToken])
 
   // Load user data untuk edit mode
   useEffect(() => {
     if (mode === 'edit' && userId) {
-      // Mock data - nanti akan diganti dengan API call
-      const mockUserData: UserFormData = {
-        email: 'admin@company.com',
-        name: 'Admin User',
-        password: '',
-        confirmPassword: '',
-        department: 'IT',
-        region: 'Jakarta',
-        level: 'Senior',
-        status: 'active',
-        roles: ['1', '4'] // Admin dan Super User
-      }
-      setFormData(mockUserData)
+      fetchUserData(userId)
     } else {
       // Reset form untuk create mode
       setFormData({
@@ -104,7 +165,7 @@ export function UserCreateEditTab({ userId, mode, onSuccess }: UserCreateEditTab
         roles: []
       })
     }
-  }, [mode, userId])
+  }, [mode, userId, accessToken])
 
   /**
    * Handle perubahan input form
@@ -183,17 +244,69 @@ export function UserCreateEditTab({ userId, mode, onSuccess }: UserCreateEditTab
       return
     }
 
+    if (!accessToken) {
+      toast.error('Token akses tidak tersedia')
+      return
+    }
+
     setLoading(true)
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      toast.success(`User ${formData.name} has been ${mode === 'create' ? 'created' : 'updated'} successfully.`)
+      if (mode === 'edit' && userId) {
+        // Update existing user
+        const response = await fetch(`/api/users/${userId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            department: formData.department,
+            region: formData.region,
+            level: formData.level,
+            active: formData.status === 'active'
+          })
+        })
+
+        const result = await response.json()
+
+        if (!response.ok) {
+          throw new Error(result.message || 'Gagal mengupdate user')
+        }
+
+        toast.success(`User ${formData.name} berhasil diupdate`)
+      } else {
+        // Create new user menggunakan register endpoint
+        const response = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            password: formData.password,
+            department: formData.department,
+            region: formData.region,
+            level: formData.level
+          })
+        })
+
+        const result = await response.json()
+
+        if (!response.ok) {
+          throw new Error(result.message || 'Gagal membuat user')
+        }
+
+        toast.success(`User ${formData.name} berhasil dibuat`)
+      }
       
       onSuccess()
     } catch (error) {
-      toast.error(`Failed to ${mode} user. Please try again.`)
+      console.error('Error saving user:', error)
+      toast.error(error instanceof Error ? error.message : 'Gagal menyimpan user')
     } finally {
       setLoading(false)
     }
@@ -204,8 +317,18 @@ export function UserCreateEditTab({ userId, mode, onSuccess }: UserCreateEditTab
    */
   const getSelectedRoleNames = () => {
     return availableRoles
-      .filter(role => formData.roles.includes(role.id))
+      .filter(role => formData.roles.includes(role.id.toString()))
       .map(role => role.name)
+  }
+
+  // Show loading state saat fetch data
+  if (loadingData) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <IconUser className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading user data...</span>
+      </div>
+    )
   }
 
   return (
@@ -420,13 +543,13 @@ export function UserCreateEditTab({ userId, mode, onSuccess }: UserCreateEditTab
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {availableRoles.map((role) => (
+            {Array.isArray(availableRoles) ? availableRoles.map((role) => (
               <div key={role.id} className="flex items-start space-x-3 p-3 border rounded-lg">
                 <Checkbox
                   id={`role-${role.id}`}
-                  checked={formData.roles.includes(role.id)}
+                  checked={formData.roles.includes(role.id.toString())}
                   onCheckedChange={(checked) => 
-                    handleRoleChange(role.id, checked as boolean)
+                    handleRoleChange(role.id.toString(), checked as boolean)
                   }
                 />
                 <div className="flex-1">
@@ -437,11 +560,11 @@ export function UserCreateEditTab({ userId, mode, onSuccess }: UserCreateEditTab
                     {role.name}
                   </Label>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {role.description}
+                    {role.grantsAll ? 'Full Access' : 'Limited Access'}
                   </p>
                 </div>
               </div>
-            ))}
+            )) : null}
           </div>
           
           {formData.roles.length > 0 && (

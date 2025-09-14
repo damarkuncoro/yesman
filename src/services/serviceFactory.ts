@@ -12,11 +12,11 @@ import {
   sessionRepository
 } from '@/repositories';
 
-import { UserService } from './userService';
+import { UserService } from './user/userService';
 import { AuthService } from '../lib/auth/authService';
-import { RoleService, FeatureService, UserRoleService, RoleFeatureService, RouteFeatureService, RBACService } from './rbacService';
-import { AbacService } from './abacService';
-import { AuditService } from './auditService';
+import { RoleService, FeatureService, UserRoleService, RoleFeatureService, RouteFeatureService, RBACService } from './rbac';
+import { AbacService } from './abac/abacService';
+import { AuditService } from './audit/auditService';
 // HybridAuthService telah digantikan oleh unified AuthService
 import { ValidationService } from '../lib/validation/validator';
 import { ErrorHandler } from '../lib/errors/errorHandler';
@@ -122,15 +122,7 @@ export class ServiceFactory {
    */
   static getAbacService(): AbacService {
     if (!this.instances.has('AbacService')) {
-      const validationService = this.getValidationService();
-      const errorHandler = this.getErrorHandlerService();
-      
-      this.instances.set('AbacService', new AbacService(
-        policyRepository,
-        userRepository,
-        validationService,
-        errorHandler
-      ));
+      this.instances.set('AbacService', new AbacService());
     }
     return this.instances.get('AbacService') as AbacService;
   }
@@ -141,13 +133,7 @@ export class ServiceFactory {
    */
   static getAuditService(): AuditService {
     if (!this.instances.has('AuditService')) {
-      this.instances.set('AuditService', new AuditService(
-        accessLogRepository,
-        policyViolationRepository,
-        changeHistoryRepository,
-        sessionRepository,
-        userRepository
-      ));
+      this.instances.set('AuditService', new AuditService());
     }
     return this.instances.get('AuditService') as AuditService;
   }

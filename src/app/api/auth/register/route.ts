@@ -6,7 +6,7 @@ import {
   AuthCookieManager,
   AuthValidationHandler,
   AuthErrorHandler,
-} from "../(_components)";
+} from "../../_shared";
 
 /**
  * API route untuk registrasi user baru
@@ -35,8 +35,18 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body = await AuthRequestHandler.parseJsonBody(request);
     
-    // Validasi input menggunakan validation handler
-    const validation = AuthValidationHandler.validateRegisterData(body);
+    // Ekstrak dan validasi data dari request body
+    const { name, email, password, department, region, level } = body;
+    
+    // Validasi input menggunakan AuthValidationHandler
+    const validation = AuthValidationHandler.validateRegisterData({ 
+      name, 
+      email, 
+      password, 
+      department, 
+      region, 
+      level 
+    });
     if (!validation.success) {
       return AuthErrorHandler.handleValidationError(
         new Error(validation.error),
@@ -47,8 +57,8 @@ export async function POST(request: NextRequest) {
     // Registrasi user melalui service layer
     const authResponse = await authService.register(validation.data!);
     
-    // Buat response dengan token
-    const response = AuthResponseBuilder.createAuthSuccessResponse(
+    // Buat response dengan token dan jalankan route discovery
+    const response = await AuthResponseBuilder.createAuthSuccessResponse(
       "Registrasi berhasil",
       authResponse,
       201

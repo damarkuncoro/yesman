@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteAuthorizationMiddleware } from './middleware/exports';
+import { createCorsHandler } from './middleware/cors/corsHandler';
+
 
 /**
  * Main middleware function untuk route-level authorization
@@ -8,7 +10,16 @@ import { createRouteAuthorizationMiddleware } from './middleware/exports';
  * @returns Promise<NextResponse> - Response atau redirect
  */
 export default async function middleware(request: NextRequest) {
+  console.log('   - middleware.ts loaded');
   try {
+    // Inisialisasi CORS handler
+    const corsHandler = createCorsHandler();
+    
+    // Handle preflight CORS requests
+    if (corsHandler.isPreflightRequest(request)) {
+      return corsHandler.handlePreflightRequest(request);
+    }
+
     // Gunakan refactored middleware orchestrator
     const middlewareOrchestrator = createRouteAuthorizationMiddleware();
     const result = await middlewareOrchestrator.handleRouteAuthorization(
@@ -29,7 +40,8 @@ export default async function middleware(request: NextRequest) {
       response.headers.set('x-auth-user-roles', JSON.stringify(result.roles));
     }
     
-    return response;
+    // Tambahkan CORS headers ke response
+    return corsHandler.handleCorsRequest(request, response);
   } catch (error) {
     console.error('Middleware error:', error);
     return NextResponse.json(

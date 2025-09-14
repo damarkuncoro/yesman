@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { userService } from "@/services/userService";
+import { userService } from '@/services';
 import { authService } from "@/lib/auth/authService";
 import { ErrorHandler, errorUtils } from "@/lib/errors/errorHandler";
 import { z } from "zod";

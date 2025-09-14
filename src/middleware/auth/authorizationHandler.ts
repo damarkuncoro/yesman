@@ -11,6 +11,7 @@ import {
 } from '@/lib/authUtils';
 import { createErrorResponse } from '@/lib/auth/authService';
 import { authService } from '@/lib/auth/authService';
+import { routeFeatureRepository, featureRepository } from '@/repositories';
 import { AuthorizationOptions } from '../types';
 
 /**
@@ -59,18 +60,41 @@ export class AuthorizationHandler {
    * Validasi route-based access menggunakan Hybrid RBAC + ABAC
    * @param userContext - User context dari authentication
    * @param routePath - Path route
+   * @param method - HTTP method (GET, POST, PUT, DELETE, etc.)
    * @param action - Action yang diperlukan
    * @returns Promise<boolean> - true jika memiliki akses
    */
   async validateRouteAccess(
     userContext: AuthenticatedUserContext,
     routePath: string,
+    method: string,
     action: 'create' | 'read' | 'update' | 'delete'
   ): Promise<boolean> {
     try {
+      // Mapping route ke feature menggunakan routeFeatureRepository dengan pattern matching
+      const matchingRoutes = await routeFeatureRepository.findMatchingRoutes(routePath, method);
+      
+      if (!matchingRoutes || matchingRoutes.length === 0) {
+        console.warn(`⚠️ Route '${method} ${routePath}' tidak ditemukan dalam route_features`);
+        return false;
+      }
+
+      // Ambil route feature pertama yang cocok
+      const routeFeature = matchingRoutes[0];
+      
+      // Ambil feature berdasarkan featureId
+      const feature = await featureRepository.findById(routeFeature.featureId);
+      if (!feature) {
+        console.warn(`⚠️ Feature dengan ID '${routeFeature.featureId}' tidak ditemukan`);
+        return false;
+      }
+
+      console.log(`✅ Route '${method} ${routePath}' cocok dengan pattern '${routeFeature.method} ${routeFeature.path}' untuk feature '${feature.name}'`);
+
+      // Gunakan feature name untuk checkPermission
       return await authService.checkPermission(
         userContext.user.id,
-        routePath,
+        feature.name,
         action
       );
     } catch (error) {
@@ -98,8 +122,17 @@ export class AuthorizationHandler {
     userContext: AuthenticatedUserContext,
     options?: AuthorizationOptions
   ): Promise<NextResponse | null> {
+
+    console.log('Authorization options:', options);
+    console.log('User roles:', userContext.roles);
+    console.log('User hasGrantsAll:', userContext.hasGrantsAll);
+    console.log('Required roles:', options?.requiredRoles);
+    console.log('Required feature:', options?.requiredFeature);
+    console.log('Required action:', options?.requiredAction);
+
     // Bypass semua cek jika user memiliki grants all
     if (this.hasGrantsAll(userContext)) {
+      console.log('✅ Grants all access granted');
       return null; // Berhasil
     }
 
@@ -133,15 +166,17 @@ export class AuthorizationHandler {
   }
 
   /**
-   * Validasi route-based authorization
+   * Validasi route authorization dengan RBAC + ABAC
    * @param userContext - User context dari authentication
-   * @param routePath - Path route
+   * @param routePath - Path route yang akan divalidasi
+   * @param method - HTTP method (GET, POST, PUT, DELETE, etc.)
    * @param action - Action yang diperlukan
    * @returns Promise<NextResponse | null> - Error response jika gagal, null jika berhasil
    */
   async validateRouteAuthorization(
     userContext: AuthenticatedUserContext,
     routePath: string,
+    method: string,
     action: 'create' | 'read' | 'update' | 'delete'
   ): Promise<NextResponse | null> {
     // Bypass semua cek jika user memiliki grants all
@@ -149,7 +184,7 @@ export class AuthorizationHandler {
       return null; // Berhasil
     }
 
-    const hasAccess = await this.validateRouteAccess(userContext, routePath, action);
+    const hasAccess = await this.validateRouteAccess(userContext, routePath, method, action);
     if (!hasAccess) {
       const errorResponse = createErrorResponse('Akses ditolak: RBAC atau ABAC validation gagal', 403);
       return NextResponse.json(errorResponse, { status: 403 });

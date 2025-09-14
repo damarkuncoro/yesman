@@ -153,5 +153,5 @@ export class AccessLogService extends BaseService {
 
 // Export instance dengan dependency injection
 export const accessLogService = new AccessLogService(
-  new AccessLogRepository()
+  new AccessLogRepository('AccessLogRepository')
 );

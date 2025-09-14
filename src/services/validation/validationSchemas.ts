@@ -17,6 +17,9 @@ export const userCreateSchema = z.object({
   email: baseEmailSchema,
   password: basePasswordSchema,
   role: baseStringSchema.optional(),
+  department: baseStringSchema.optional(),
+  region: baseStringSchema.optional(),
+  level: z.number().int().min(1).max(10).optional(),
 });
 
 export const userUpdateSchema = z.object({

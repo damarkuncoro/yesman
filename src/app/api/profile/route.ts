@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withFeature, getUserFromRequest } from '@/lib/withFeature';
-import { userService } from '@/services/userService';
+import { userService } from '@/services';
 import { createErrorResponse } from '@/lib/authUtils';
 
 /**

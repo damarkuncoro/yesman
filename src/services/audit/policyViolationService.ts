@@ -218,5 +218,5 @@ export class PolicyViolationService extends BaseService {
 
 // Export instance dengan dependency injection
 export const policyViolationService = new PolicyViolationService(
-  new PolicyViolationRepository()
+  new PolicyViolationRepository('PolicyViolationRepository')
 );

@@ -25,9 +25,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/shadcn/ui
  * Interface untuk data statistik department
  */
 interface DepartmentStats {
-  departmentName: string;
+  department: string;
   userCount: number;
-  activeUsers: number;
   accessCount: number;
   deniedCount: number;
   successRate: number;
@@ -87,8 +86,9 @@ export function DepartmentRegionStats({ className = '' }: DepartmentRegionStatsP
       const departmentData = await departmentResponse.json();
       const regionData = await regionResponse.json();
       
-      setDepartmentStats(departmentData);
-      setRegionStats(regionData);
+      // API mengembalikan array langsung, bukan objek dengan property departmentStats
+      setDepartmentStats(Array.isArray(departmentData) ? departmentData : []);
+      setRegionStats(Array.isArray(regionData) ? regionData : []);
     } catch (error) {
       console.error('Error fetching department/region stats:', error);
       setError(error instanceof Error ? error.message : 'Terjadi kesalahan saat mengambil data');
@@ -240,32 +240,25 @@ export function DepartmentRegionStats({ className = '' }: DepartmentRegionStatsP
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Department</TableHead>
-                    <TableHead className="text-right">Users</TableHead>
-                    <TableHead className="text-right">Active</TableHead>
-                    <TableHead className="text-right">Total Akses</TableHead>
-                    <TableHead className="text-right">Ditolak</TableHead>
-                    <TableHead className="text-right">Success Rate</TableHead>
-                    <TableHead className="text-right">Trend</TableHead>
-                  </TableRow>
+                      <TableHead>Department</TableHead>
+                      <TableHead className="text-right">Total Users</TableHead>
+                      <TableHead className="text-right">Total Akses</TableHead>
+                      <TableHead className="text-right">Ditolak</TableHead>
+                      <TableHead className="text-right">Success Rate</TableHead>
+                      <TableHead className="text-right">Trend</TableHead>
+                    </TableRow>
                 </TableHeader>
                 <TableBody>
                   {departmentStats.map((dept) => (
-                    <TableRow key={dept.departmentName}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <IconBuilding className="size-4 text-muted-foreground" />
-                          <span className="font-medium">{dept.departmentName}</span>
-                        </div>
-                      </TableCell>
+                    <TableRow key={dept.department}>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <IconBuilding className="size-4 text-blue-600" />
+                      <span className="font-medium">{dept.department}</span>
+                    </div>
+                  </TableCell>
                       <TableCell className="text-right font-semibold">
                         {dept.userCount}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Progress value={(dept.activeUsers / dept.userCount) * 100} className="h-2 w-12" />
-                          <span className="text-sm">{dept.activeUsers}</span>
-                        </div>
                       </TableCell>
                       <TableCell className="text-right font-semibold">
                         {dept.accessCount.toLocaleString()}

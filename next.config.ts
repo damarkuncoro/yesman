@@ -1,10 +1,14 @@
 import type { NextConfig } from "next";
+import setupService from "./src/services/setup";
 
+console.log('   - next.config.ts loaded');
+
+// Jalankan setup service saat konfigurasi dimuat
+setupService.setup();
 const nextConfig: NextConfig = {
+  
   /* config options here */
   output: 'standalone',
-  // Konfigurasi untuk mengizinkan cross-origin requests dari IP lokal
-  allowedDevOrigins: ['*'],
   
   eslint: {
     // Abaikan ESLint errors selama build

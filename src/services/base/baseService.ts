@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { debugService, debugError, debugTime } from "@/lib/debug/debugLogger";
 
 /**
  * Interface untuk service yang memiliki operasi CRUD dasar
@@ -31,8 +32,14 @@ export interface ErrorHandlingService {
 /**
  * Base service class yang mengimplementasikan common functionality
  * Menerapkan DRY principle dan Single Responsibility Principle
+ * Dilengkapi dengan debug tracking untuk development environment
  */
 export abstract class BaseService implements ValidatableService, ErrorHandlingService {
+  protected readonly serviceName: string;
+
+  constructor(serviceName?: string) {
+    this.serviceName = serviceName || this.constructor.name;
+  }
   /**
    * Validasi input menggunakan Zod schema
    * @param schema - Zod schema untuk validasi
@@ -67,20 +74,44 @@ export abstract class BaseService implements ValidatableService, ErrorHandlingSe
   }
 
   /**
-   * Execute operation dengan error handling yang konsisten
+   * Execute operation dengan error handling yang konsisten dan debug tracking
    * @param operation - Nama operasi
    * @param fn - Function yang akan dieksekusi
+   * @param data - Data untuk debugging
+   * @param userId - ID user untuk tracking
    * @returns Result dari function
    */
   protected async executeWithErrorHandling<T>(
     operation: string,
-    fn: () => Promise<T>
+    fn: () => Promise<T>,
+    data?: any,
+    userId?: string | number
   ): Promise<T> {
-    try {
-      return await fn();
-    } catch (error) {
-      this.handleError(operation, error);
-    }
+    return debugTime(
+      'SERVICE',
+      this.serviceName,
+      operation,
+      `Service operation: ${operation}`,
+      async () => {
+        try {
+          debugService(this.serviceName, operation, `Starting ${operation}`, data, userId);
+          
+          const result = await fn();
+          
+          debugService(this.serviceName, operation, `Completed ${operation}`, {
+            resultType: typeof result,
+            resultCount: Array.isArray(result) ? result.length : result ? 1 : 0,
+            hasResult: !!result
+          }, userId);
+          
+          return result;
+        } catch (error) {
+          debugError('SERVICE', this.serviceName, operation, `Failed ${operation}`, error as Error, data, userId);
+          this.handleError(operation, error);
+        }
+      },
+      userId
+    );
   }
 
   /**
@@ -140,8 +171,7 @@ export abstract class BaseService implements ValidatableService, ErrorHandlingSe
  * Menerapkan Template Method Pattern
  */
 export abstract class BaseCrudService<T, CreateInput, UpdateInput = Partial<CreateInput>> 
-  extends BaseService 
-  implements CrudService<T, CreateInput, UpdateInput> {
+  extends BaseService implements CrudService<T, CreateInput, UpdateInput> {
   
   abstract getAll(): Promise<T[]>;
   abstract getById(id: number): Promise<T | null>;

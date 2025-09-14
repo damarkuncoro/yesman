@@ -283,4 +283,4 @@ export class AccessLogRepository extends BaseRepository implements CrudRepositor
   }
 }
 
-export const accessLogRepository = new AccessLogRepository();
+export const accessLogRepository = new AccessLogRepository('AccessLogRepository');

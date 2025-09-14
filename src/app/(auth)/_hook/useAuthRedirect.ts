@@ -1,5 +1,6 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect } from 'react'
+import { getPostLoginRedirectUrl, isValidRedirectUrl, clearSavedRedirectPath } from '@/lib/auth/authRedirectUtils'
 
 /**
  * Interface untuk konfigurasi redirect
@@ -39,21 +40,12 @@ export const useAuthRedirect = (config: RedirectConfig = {}) => {
 
   /**
    * Method untuk redirect setelah login berhasil
-   * Akan menggunakan URL dari query parameter jika ada, atau successUrl sebagai fallback
+   * Menggunakan utility function untuk handling yang konsisten
    */
   const redirectAfterLogin = useCallback(() => {
-    const redirectUrl = getRedirectUrl()
-    const targetUrl = redirectUrl || successUrl
-    
-    // Validasi URL untuk mencegah open redirect vulnerability
-    if (redirectUrl && !isValidRedirectUrl(redirectUrl)) {
-      console.warn('Invalid redirect URL detected, using default success URL')
-      router.push(successUrl)
-      return
-    }
-    
+    const targetUrl = getPostLoginRedirectUrl(successUrl)
     router.push(targetUrl)
-  }, [router, successUrl, getRedirectUrl])
+  }, [router, successUrl])
 
   /**
    * Method untuk redirect setelah logout
@@ -151,26 +143,6 @@ export const useAuthRedirect = (config: RedirectConfig = {}) => {
     createLoginUrlWithRedirect,
     replaceUrl,
     useAutoRedirect
-  }
-}
-
-/**
- * Helper function untuk memvalidasi URL redirect
- * Mencegah open redirect vulnerability
- * @param url - URL yang akan divalidasi
- * @returns true jika URL valid dan aman
- */
-function isValidRedirectUrl(url: string): boolean {
-  try {
-    // Hanya izinkan relative URL atau URL dengan same origin
-    if (url.startsWith('/')) {
-      return true
-    }
-    
-    const urlObj = new URL(url)
-    return urlObj.origin === window.location.origin
-  } catch {
-    return false
   }
 }
 

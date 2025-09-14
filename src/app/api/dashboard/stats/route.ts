@@ -1,35 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
-import { dashboardService } from "@/services/dashboardService";
-import { authorizationMiddleware } from "@/middleware/authorizationMiddleware";
+import { NextRequest } from "next/server";
+import { DashboardHandlers } from "../../_shared";
 
 /**
  * GET /api/dashboard/stats
  * Mengambil ringkasan statistik dashboard
+ * 
+ * Menggunakan DashboardHandlers untuk implementasi SOLID principles:
+ * - Single Responsibility: Handler hanya bertanggung jawab untuk satu operasi
+ * - Open/Closed: Dapat diperluas tanpa mengubah kode existing
+ * - Dependency Inversion: Bergantung pada abstraksi, bukan implementasi konkret
+ */
+
+// Buat handler menggunakan factory pattern
+const statsHandler = DashboardHandlers.getSummaryStats();
+
+/**
+ * GET handler untuk dashboard summary statistics
  */
 export async function GET(request: NextRequest) {
-  try {
-    // Authorization check - user harus login
-    const authResult = await authorizationMiddleware.authorize(request);
-    
-    if (authResult instanceof NextResponse) {
-      return authResult; // Return error response
-    }
-
-    // Ambil data statistik dashboard
-    const dashboardSummary = await dashboardService.getDashboardSummary();
-    
-    return NextResponse.json({
-      success: true,
-      data: dashboardSummary
-    });
-  } catch (error) {
-    console.error('Error fetching dashboard stats:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        message: error instanceof Error ? error.message : 'Terjadi kesalahan saat mengambil statistik dashboard' 
-      },
-      { status: 500 }
-    );
-  }
+  return statsHandler.handle(request);
 }

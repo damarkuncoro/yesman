@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withFeature, getUserFromRequest } from "@/lib/withFeature";
-import { roleService, createRoleSchema } from "@/services/rbacService";
+import { roleService } from "@/services";
+import { createRoleSchema } from "@/services/rbac/types";
 import { z } from "zod";
 
 /**

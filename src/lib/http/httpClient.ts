@@ -1,4 +1,5 @@
 import type { ApiResponse, RequestOptions, HttpMethod } from "../types";
+import { handleUnauthorizedRedirect } from "../auth/authRedirectUtils";
 
 /**
  * Interface untuk HTTP client configuration
@@ -213,6 +214,31 @@ httpClient.addResponseInterceptor(async (response) => {
   if (process.env.NODE_ENV === 'development') {
     console.log(`✅ ${response.status} ${response.url}`);
   }
+  
+  // Handle 401 Unauthorized - redirect ke login page
+  if (response.status === 401) {
+    // Cek apakah ada header redirect dari server
+    const redirectTo = response.headers.get('X-Redirect-To');
+    const redirectReason = response.headers.get('X-Redirect-Reason');
+    
+    if (redirectTo && redirectReason === 'token-not-found') {
+      // Redirect spesifik untuk "Token tidak ditemukan"
+      console.log('🔄 Token tidak ditemukan, redirecting to login...');
+      handleUnauthorizedRedirect({
+        loginUrl: redirectTo,
+        preserveCurrentPath: true,
+        clearTokens: true
+      });
+    } else {
+      // Fallback untuk 401 lainnya
+      handleUnauthorizedRedirect({
+        loginUrl: '/login',
+        preserveCurrentPath: true,
+        clearTokens: true
+      });
+    }
+  }
+  
   return response;
 });
 

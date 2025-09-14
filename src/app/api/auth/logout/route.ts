@@ -6,7 +6,7 @@ import {
   AuthCookieManager,
   AuthValidationHandler,
   AuthErrorHandler,
-} from "../(_components)";
+} from "../../_shared";
 
 /**
  * API route untuk logout user

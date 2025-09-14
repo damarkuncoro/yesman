@@ -242,7 +242,7 @@ export class PolicyEvaluationService extends BaseService {
 
 // Export instance untuk digunakan di service lain
 export const policyEvaluationService = new PolicyEvaluationService(
-  new PolicyRepository(),
+  new PolicyRepository('PolicyRepository'),
   new UserRepository(),
   new PolicyComparisonService(),
   new ValidationService()

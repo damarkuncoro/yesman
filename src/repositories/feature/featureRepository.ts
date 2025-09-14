@@ -153,4 +153,4 @@ export class FeatureRepository extends BaseRepository implements CrudRepository<
 }
 
 // Export instance untuk backward compatibility
-export const featureRepository = new FeatureRepository();
+export const featureRepository = new FeatureRepository('FeatureRepository');

@@ -134,4 +134,4 @@ export class RoleRepository extends BaseRepository implements CrudRepository<Rol
 }
 
 // Export instance untuk backward compatibility
-export const roleRepository = new RoleRepository();
+export const roleRepository = new RoleRepository('RoleRepository');

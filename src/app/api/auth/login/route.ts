@@ -6,7 +6,7 @@ import {
   AuthCookieManager,
   AuthValidationHandler,
   AuthErrorHandler,
-} from "../(_components)";
+} from "../../_shared";
 
 /**
  * API route untuk login user
@@ -46,8 +46,8 @@ export async function POST(request: NextRequest) {
     // Login user melalui service layer
     const authResponse = await authService.login(validation.data!);
     
-    // Buat response dengan token
-    const response = AuthResponseBuilder.createAuthSuccessResponse(
+    // Buat response dengan token dan jalankan route discovery
+    const response = await AuthResponseBuilder.createAuthSuccessResponse(
       "Login berhasil",
       authResponse,
       200

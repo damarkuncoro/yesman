@@ -132,4 +132,4 @@ export class PolicyRepository extends BaseRepository implements CrudRepository<P
 }
 
 // Export instance untuk backward compatibility
-export const policyRepository = new PolicyRepository();
+export const policyRepository = new PolicyRepository('PolicyRepository');

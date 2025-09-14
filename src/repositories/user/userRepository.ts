@@ -7,8 +7,12 @@ import { BaseRepository, CrudRepository, CountableRepository } from "../base/bas
  * Repository untuk operasi CRUD user
  * Mengikuti prinsip Single Responsibility - hanya menangani akses data user
  * Mengextend BaseRepository untuk menghilangkan duplikasi kode
+ * Dilengkapi dengan debug tracking untuk development environment
  */
 export class UserRepository extends BaseRepository implements CrudRepository<User, NewUser>, CountableRepository {
+  constructor() {
+    super('UserRepository');
+  }
   /**
    * Mengambil semua user dari database
    * @returns Promise<User[]> - Array semua user
@@ -25,10 +29,15 @@ export class UserRepository extends BaseRepository implements CrudRepository<Use
    * @returns Promise<User | undefined> - User jika ditemukan, undefined jika tidak
    */
   async findById(id: number): Promise<User | undefined> {
-    return this.executeWithErrorHandling('find user by ID', async () => {
-      const result = await db!.select().from(users).where(eq(users.id, id)).limit(1);
-      return this.getFirstResult(result);
-    });
+    return this.executeWithErrorHandling(
+      'find user by ID', 
+      async () => {
+        const result = await db!.select().from(users).where(eq(users.id, id)).limit(1);
+        return this.getFirstResult(result);
+      },
+      { searchId: id },
+      id
+    );
   }
 
   /**
@@ -37,10 +46,14 @@ export class UserRepository extends BaseRepository implements CrudRepository<Use
    * @returns Promise<User | undefined> - User jika ditemukan, undefined jika tidak
    */
   async findByEmail(email: string): Promise<User | undefined> {
-    return this.executeWithErrorHandling('find user by email', async () => {
-      const result = await db!.select().from(users).where(eq(users.email, email)).limit(1);
-      return this.getFirstResult(result);
-    });
+    return this.executeWithErrorHandling(
+      'find user by email', 
+      async () => {
+        const result = await db!.select().from(users).where(eq(users.email, email)).limit(1);
+        return this.getFirstResult(result);
+      },
+      { searchEmail: email }
+    );
   }
 
   /**
@@ -101,6 +114,21 @@ export class UserRepository extends BaseRepository implements CrudRepository<Use
     return this.executeWithErrorHandling('count users', async () => {
       const result = await db!.select({ count: count() }).from(users);
       return Number(result[0]?.count || 0);
+    });
+  }
+
+  /**
+   * Update last login timestamp untuk user (menggunakan updatedAt sebagai penanda)
+   * @param id - ID user yang akan diupdate
+   * @returns Promise<User | undefined> - User yang sudah diupdate atau undefined jika tidak ditemukan
+   */
+  async updateLastLogin(id: number): Promise<User | undefined> {
+    return this.executeWithErrorHandling('update user last login', async () => {
+      const result = await db!.update(users)
+        .set({ updatedAt: new Date() })
+        .where(eq(users.id, id))
+        .returning();
+      return this.getFirstResult(result);
     });
   }
 

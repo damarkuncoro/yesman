@@ -5,7 +5,7 @@ import {
   AuthResponseBuilder,
   AuthValidationHandler,
   AuthErrorHandler,
-} from "../(_components)";
+} from "../../_shared";
 
 /**
  * API route untuk validasi akses user

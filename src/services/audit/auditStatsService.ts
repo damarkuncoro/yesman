@@ -272,10 +272,10 @@ export class AuditStatsService extends BaseService {
 }
 
 // Export instance dengan dependency injection
-const accessLogRepository = new AccessLogRepository();
-const policyViolationRepository = new PolicyViolationRepository();
-const changeHistoryRepository = new ChangeHistoryRepository();
-const sessionRepository = new SessionRepository();
+const accessLogRepository = new AccessLogRepository('AccessLogRepository');
+const policyViolationRepository = new PolicyViolationRepository('PolicyViolationRepository');
+const changeHistoryRepository = new ChangeHistoryRepository('ChangeHistoryRepository');
+const sessionRepository = new SessionRepository('SessionRepository');
 
 export const auditStatsService = new AuditStatsService(
   accessLogRepository,

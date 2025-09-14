@@ -32,6 +32,20 @@ export class SessionRepository extends BaseRepository implements CrudRepository<
   }
 
   /**
+   * Mencari session berdasarkan token
+   * @param token - Session token yang dicari
+   * @returns Promise<Session | undefined> - Session jika ditemukan, undefined jika tidak
+   */
+  async findByToken(token: string): Promise<Session | undefined> {
+    return this.executeWithErrorHandling('find session by token', async () => {
+      const result = await db!.select().from(sessions)
+        .where(eq(sessions.refreshToken, token)) // Menggunakan refreshToken karena hanya itu yang ada di schema
+        .limit(1);
+      return this.getFirstResult(result);
+    });
+  }
+
+  /**
    * Mencari session berdasarkan refresh token
    * @param refreshToken - Refresh token yang dicari
    * @returns Promise<Session | undefined> - Session jika ditemukan, undefined jika tidak
@@ -158,4 +172,4 @@ export class SessionRepository extends BaseRepository implements CrudRepository<
 }
 
 // Export instance untuk backward compatibility
-export const sessionRepository = new SessionRepository();
+export const sessionRepository = new SessionRepository("SessionRepository");
