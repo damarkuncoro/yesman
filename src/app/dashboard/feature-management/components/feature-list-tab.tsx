@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/shadcn/ui/button";
 import { Input } from "@/components/shadcn/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shadcn/ui/card";
@@ -46,80 +46,144 @@ export function FeatureListTab({
   const [isLoading, setIsLoading] = useState(true);
 
   /**
-   * Mengambil data features dari API
+   * Mengambil data features dari API dengan error handling yang lebih baik
+   * @returns Promise<Feature[]> - Array features atau array kosong jika gagal
    */
   const fetchFeatures = async (): Promise<Feature[]> => {
     try {
-      const response = await fetch('/api/rbac/features');
+      const response = await fetch('/api/rbac/features', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch features');
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to fetch features'}`);
       }
+      
       const result = await response.json();
-      return result.success ? result.data : [];
+      
+      if (!result.success) {
+        throw new Error(result.message || 'API returned unsuccessful response');
+      }
+      
+      return Array.isArray(result.data) ? result.data : [];
     } catch (error) {
       console.error('Error fetching features:', error);
+      // Re-throw dengan pesan yang lebih informatif
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Network error: Unable to connect to server');
+      }
       throw error;
     }
   };
 
   /**
-   * Load data features saat komponen dimount
+   * Load data features saat komponen dimount dengan retry mechanism
    */
   useEffect(() => {
+    let isMounted = true;
+    let retryCount = 0;
+    const maxRetries = 3;
+    
     const loadFeatures = async () => {
+      if (!isMounted) return;
+      
       setIsLoading(true);
       try {
         const featuresData = await fetchFeatures();
-        setFeatures(featuresData);
+        if (isMounted) {
+          setFeatures(featuresData);
+        }
       } catch (error) {
-        console.error("Error loading features:", error);
+        console.error('Failed to load features:', error);
+        
+        if (isMounted) {
+          // Retry logic untuk network errors
+          if (retryCount < maxRetries && error instanceof Error && 
+              (error.message.includes('Network error') || error.message.includes('fetch'))) {
+            retryCount++;
+            console.log(`Retrying... Attempt ${retryCount}/${maxRetries}`);
+            setTimeout(() => loadFeatures(), 1000 * retryCount); // Exponential backoff
+            return;
+          }
+          
+          setFeatures([]); // Set empty array on error
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadFeatures();
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   /**
-   * Filter features berdasarkan search term
+   * Filter features berdasarkan search term dengan memoization untuk performance
    */
-  const filteredFeatures = features.filter(
-    (feature) =>
-      feature.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      feature.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  /**
-   * Handler untuk view detail feature
-   */
-  const handleViewDetail = (featureId: number) => {
-    onFeatureSelect(featureId);
-  };
-
-  /**
-   * Handler untuk edit feature
-   */
-  const handleEdit = (featureId: number) => {
-    onFeatureEdit(featureId);
-  };
-
-  /**
-   * Handler untuk delete feature
-   */
-  const handleDelete = async (featureId: number) => {
-    if (window.confirm('Are you sure you want to delete this feature?')) {
-      try {
-        await onFeatureDelete(featureId);
-        // Refresh data setelah delete berhasil
-        const featuresData = await fetchFeatures();
-        setFeatures(featuresData);
-      } catch (error) {
-        // Error handling sudah dilakukan di parent component
-        console.error('Error deleting feature:', error);
-      }
+  const filteredFeatures = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return features;
     }
-  };
+    
+    const searchLower = searchTerm.toLowerCase().trim();
+    return features.filter((feature) =>
+      feature.name.toLowerCase().includes(searchLower) ||
+      feature.description.toLowerCase().includes(searchLower) ||
+      (feature.category && feature.category.toLowerCase().includes(searchLower))
+    );
+  }, [features, searchTerm]);
+
+  /**
+   * Handler untuk view detail feature dengan memoization
+   */
+  const handleViewDetail = useCallback((featureId: number) => {
+    onFeatureSelect(featureId);
+  }, [onFeatureSelect]);
+
+  /**
+   * Handler untuk edit feature dengan memoization
+   */
+  const handleEdit = useCallback((featureId: number) => {
+    onFeatureEdit(featureId);
+  }, [onFeatureEdit]);
+
+  /**
+   * Handler untuk delete feature dengan optimistic updates dan rollback
+   */
+  const handleDelete = useCallback(async (featureId: number) => {
+    const featureToDelete = features.find(f => f.id === featureId);
+    if (!featureToDelete) {
+      console.error('Feature not found');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete "${featureToDelete.name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    // Optimistic update - remove from UI immediately
+    const originalFeatures = [...features];
+    setFeatures(prev => prev.filter(f => f.id !== featureId));
+    
+    try {
+      await onFeatureDelete(featureId);
+    } catch (error) {
+      console.error('Error deleting feature:', error);
+      
+      // Rollback optimistic update
+      setFeatures(originalFeatures);
+    }
+  }, [features, onFeatureDelete]);
 
   if (isLoading) {
     return (

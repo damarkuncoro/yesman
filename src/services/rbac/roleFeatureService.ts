@@ -14,9 +14,31 @@ export class RoleFeatureService {
    * @returns Promise<RoleFeature> - RoleFeature yang dibuat/diupdate
    * @throws RBACError jika role/feature tidak ditemukan
    */
-  async setPermission(permissionData: z.infer<typeof setPermissionSchema>): Promise<RoleFeature> {
+  async setPermission(permissionData: z.infer<typeof setPermissionSchema> | any): Promise<RoleFeature> {
+    // Mapping field permissions dari snake_case (frontend) ke camelCase (database)
+    const mappedData: any = { ...permissionData };
+    if ('can_create' in permissionData) {
+      mappedData.canCreate = permissionData.can_create;
+      delete mappedData.can_create;
+    }
+    if ('can_read' in permissionData) {
+      mappedData.canRead = permissionData.can_read;
+      delete mappedData.can_read;
+    }
+    if ('can_update' in permissionData) {
+      mappedData.canUpdate = permissionData.can_update;
+      delete mappedData.can_update;
+    }
+    if ('can_delete' in permissionData) {
+      mappedData.canDelete = permissionData.can_delete;
+      delete mappedData.can_delete;
+    }
+    
+    console.log('RoleFeatureService.setPermission - Original data:', permissionData);
+    console.log('RoleFeatureService.setPermission - Mapped data:', mappedData);
+    
     // Validasi input
-    const validatedData = setPermissionSchema.parse(permissionData);
+    const validatedData = setPermissionSchema.parse(mappedData);
     
     // Cek apakah role ada
     const role = await roleRepository.findById(validatedData.roleId);

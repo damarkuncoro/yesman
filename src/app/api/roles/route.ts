@@ -5,12 +5,12 @@ import { createRoleSchema } from "@/services/rbac/types";
 import { z } from "zod";
 
 /**
- * Handler untuk mengambil daftar semua role
+ * Handler untuk mendapatkan daftar semua role
  * Memerlukan permission 'role_management' dengan action 'read'
  */
-async function handleGetRoles(req: NextRequest): Promise<NextResponse> {
+async function handleGetRoles(request: NextRequest): Promise<NextResponse> {
   try {
-    const authenticatedUser = getUserFromRequest(req);
+    const authenticatedUser = getUserFromRequest(request);
     console.log('Authenticated user accessing roles list:', authenticatedUser);
     
     // Ambil semua role dari service
@@ -18,19 +18,24 @@ async function handleGetRoles(req: NextRequest): Promise<NextResponse> {
     
     return NextResponse.json({
       success: true,
-      data: { roles },
-      message: "Daftar role berhasil diambil"
-    });
+      data: {
+        roles,
+      },
+    }, { status: 200 });
     
   } catch (error) {
-    console.error('Error getting roles:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        message: "Terjadi kesalahan saat mengambil daftar role" 
-      },
-      { status: 500 }
-    );
+    if (error instanceof Error) {
+      return NextResponse.json({
+        success: false,
+        message: error.message,
+      }, { status: 401 });
+    }
+    
+    console.error("Get roles error:", error);
+    return NextResponse.json({
+      success: false,
+      message: "Terjadi kesalahan server",
+    }, { status: 500 });
   }
 }
 
@@ -38,13 +43,13 @@ async function handleGetRoles(req: NextRequest): Promise<NextResponse> {
  * Handler untuk membuat role baru
  * Memerlukan permission 'role_management' dengan action 'create'
  */
-async function handleCreateRole(req: NextRequest): Promise<NextResponse> {
+async function handleCreateRole(request: NextRequest): Promise<NextResponse> {
   try {
-    const authenticatedUser = getUserFromRequest(req);
+    const authenticatedUser = getUserFromRequest(request);
     console.log('Authenticated user creating new role:', authenticatedUser);
     
     // Parse request body
-    const body = await req.json();
+    const body = await request.json();
     console.log('Create role request body:', body);
     
     // Validasi input dengan Zod
@@ -56,8 +61,9 @@ async function handleCreateRole(req: NextRequest): Promise<NextResponse> {
     
     return NextResponse.json({
       success: true,
-      data: { role: newRole },
-      message: "Role berhasil dibuat"
+      data: {
+        role: newRole,
+      },
     }, { status: 201 });
     
   } catch (error) {

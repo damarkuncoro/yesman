@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/shadcn/ui/button";
 import { Input } from "@/components/shadcn/ui/input";
 import { Label } from "@/components/shadcn/ui/label";
@@ -73,16 +73,30 @@ export function FeatureCreateEditTab({
   const [isLoadingRoles, setIsLoadingRoles] = useState(false);
 
   /**
-   * Mengambil data roles dari API
+   * Mengambil data roles dari API dengan error handling yang lebih baik
+   * @returns Promise<Role[]> - Array roles atau array kosong jika gagal
    */
   const fetchRoles = async (): Promise<Role[]> => {
     try {
-      const response = await fetch('/api/rbac/roles');
+      const response = await fetch('/api/rbac/roles', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch roles');
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to fetch roles'}`);
       }
+      
       const result = await response.json();
-      return result.success ? result.data.map((role: any) => ({
+      
+      if (!result.success) {
+        throw new Error(result.message || 'API returned unsuccessful response');
+      }
+      
+      return Array.isArray(result.data) ? result.data.map((role: any) => ({
         id: role.id.toString(),
         name: role.name,
         description: role.description || `Role ${role.name}`,
@@ -93,104 +107,192 @@ export function FeatureCreateEditTab({
       })) : [];
     } catch (error) {
       console.error('Error fetching roles:', error);
+      
+      // Re-throw dengan pesan yang lebih informatif
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Network error: Unable to connect to server');
+      }
       throw error;
     }
   };
 
   /**
-   * Mengambil detail feature dari API untuk mode edit
+   * Mengambil detail feature dari API untuk mode edit dengan error handling yang lebih baik
+   * @param id - ID feature yang akan diambil
+   * @returns Promise<any> - Detail feature atau null jika tidak ditemukan
    */
   const fetchFeatureDetail = async (id: number): Promise<any> => {
     try {
-      const response = await fetch(`/api/rbac/features/${id}`);
+      const response = await fetch(`/api/rbac/features/${id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch feature detail');
+        if (response.status === 404) {
+          console.warn(`Feature dengan ID ${id} tidak ditemukan`);
+          return null;
+        }
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to fetch feature detail'}`);
       }
+      
       const result = await response.json();
-      return result.success ? result.data : null;
+      
+      if (!result.success) {
+        throw new Error(result.message || 'API returned unsuccessful response');
+      }
+      
+      return result.data;
     } catch (error) {
       console.error('Error fetching feature detail:', error);
+      
+      // Re-throw dengan pesan yang lebih informatif
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Network error: Unable to connect to server');
+      }
       throw error;
     }
   };
 
 
 
-  // Load roles data saat komponen dimount
+  // Load roles data saat komponen dimount dengan retry mechanism
   useEffect(() => {
+    let isMounted = true;
+    let retryCount = 0;
+    const maxRetries = 3;
+    
     const loadRoles = async () => {
+      if (!isMounted) return;
+      
       setIsLoadingRoles(true);
       try {
         const roles = await fetchRoles();
-        setAvailableRoles(roles);
+        if (isMounted) {
+          setAvailableRoles(roles);
+        }
       } catch (error) {
         console.error('Failed to load roles:', error);
-        toast.error("Failed to load roles");
+        
+        if (isMounted) {
+          // Retry logic untuk network errors
+          if (retryCount < maxRetries && error instanceof Error && 
+              (error.message.includes('Network error') || error.message.includes('fetch'))) {
+            retryCount++;
+            console.log(`Retrying roles fetch... Attempt ${retryCount}/${maxRetries}`);
+            setTimeout(() => loadRoles(), 1000 * retryCount);
+            return;
+          }
+          
+          const errorMessage = error instanceof Error ? error.message : 'Failed to load roles';
+          toast.error(errorMessage);
+          setAvailableRoles([]);
+        }
       } finally {
-        setIsLoadingRoles(false);
+        if (isMounted) {
+          setIsLoadingRoles(false);
+        }
       }
     };
 
     loadRoles();
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   /**
-   * Load data saat komponen dimount atau featureId berubah
+   * Load data saat komponen dimount atau featureId berubah dengan cleanup
    */
   useEffect(() => {
+    let isMounted = true;
+    
     const loadData = async () => {
+      if (!isMounted) return;
+      
       setIsLoading(true);
       try {
         // Load existing feature data jika edit mode
         if (isEditMode && featureId) {
           try {
             const existingData = await fetchFeatureDetail(featureId);
-            if (existingData) {
+            if (isMounted && existingData) {
+              // Mapping dari backend response (snake_case) ke frontend state (camelCase)
               setFormData({
-                name: existingData.name,
-                description: existingData.description,
-                isActive: existingData.isActive,
-                roles: existingData.roles || []
+                name: existingData.name || '',
+                description: existingData.description || '',
+                isActive: existingData.is_active ?? true, // Handle snake_case dari backend
+                roles: Array.isArray(existingData.features) ? existingData.features.map((feature: any) => ({
+                  id: feature.role_id?.toString() || feature.roleId?.toString() || '',
+                  name: feature.role_name || feature.roleName || `Role ${feature.role_id || feature.roleId}`,
+                  description: feature.role_description || feature.roleDescription || '',
+                  canCreate: feature.can_create ?? feature.canCreate ?? true,
+                  canRead: feature.can_read ?? feature.canRead ?? true,
+                  canUpdate: feature.can_update ?? feature.canUpdate ?? true,
+                  canDelete: feature.can_delete ?? feature.canDelete ?? false,
+                })) : []
               });
+            } else if (isMounted && !existingData) {
+              toast.error('Feature not found');
             }
           } catch (error) {
             console.error('Failed to load feature detail:', error);
-            toast.error('Failed to load feature detail');
+            if (isMounted) {
+              const errorMessage = error instanceof Error ? error.message : 'Failed to load feature detail';
+              toast.error(errorMessage);
+            }
           }
         } else {
           // Reset form untuk create mode
-          setFormData({
-            name: "",
-            description: "",
-            isActive: true,
-            roles: [],
-          });
+          if (isMounted) {
+            setFormData({
+              name: "",
+              description: "",
+              isActive: true,
+              roles: [],
+            });
+          }
         }
       } catch (error) {
         console.error("Error loading data:", error);
-        toast.error("Failed to load data");
+        if (isMounted) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to load data';
+          toast.error(errorMessage);
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadData();
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
   }, [featureId, isEditMode]);
 
   /**
-   * Handle input change
+   * Handle input change dengan memoization
    */
-  const handleInputChange = (field: keyof FeatureFormData, value: any) => {
+  const handleInputChange = useCallback((field: keyof FeatureFormData, value: any) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }));
-  };
+  }, []);
 
   /**
-   * Handle role selection
+   * Handle role selection dengan memoization
    */
-  const handleRoleToggle = (role: Role, isSelected: boolean) => {
+  const handleRoleToggle = useCallback((role: Role, isSelected: boolean) => {
     if (isSelected) {
       // Add role dengan default permissions
       setFormData((prev) => ({
@@ -204,12 +306,12 @@ export function FeatureCreateEditTab({
         roles: prev.roles.filter((r) => r.id !== role.id),
       }));
     }
-  };
+  }, []);
 
   /**
-   * Handle permission change untuk specific role
+   * Handle permission change untuk specific role dengan memoization
    */
-  const handlePermissionChange = (
+  const handlePermissionChange = useCallback((
     roleId: string,
     permission: keyof Pick<Role, "canCreate" | "canRead" | "canUpdate" | "canDelete">,
     value: boolean
@@ -220,89 +322,124 @@ export function FeatureCreateEditTab({
         role.id === roleId ? { ...role, [permission]: value } : role
       ),
     }));
-  };
+  }, []);
 
   /**
-   * Validate form data
+   * Validate form data dengan validasi yang lebih komprehensif
    */
-  const validateForm = (): boolean => {
+  const validateForm = useCallback((): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+    
+    // Validasi nama feature
     if (!formData.name.trim()) {
-      toast.error("Feature name is required");
-      return false;
+      errors.push('Feature name is required');
+    } else if (formData.name.trim().length < 3) {
+      errors.push('Feature name must be at least 3 characters long');
+    } else if (formData.name.trim().length > 50) {
+      errors.push('Feature name must not exceed 50 characters');
     }
 
+    // Validasi deskripsi
     if (!formData.description.trim()) {
-      toast.error("Feature description is required");
-      return false;
+      errors.push('Feature description is required');
+    } else if (formData.description.trim().length < 10) {
+      errors.push('Feature description must be at least 10 characters long');
+    } else if (formData.description.trim().length > 500) {
+      errors.push('Feature description must not exceed 500 characters');
     }
 
+    // Validasi roles
     if (formData.roles.length === 0) {
-      toast.error("At least one role must be assigned");
-      return false;
+      errors.push('At least one role must be assigned');
+    }
+    
+    // Validasi permissions untuk setiap role
+    const rolesWithoutPermissions = formData.roles.filter(role => 
+      !role.canCreate && !role.canRead && !role.canUpdate && !role.canDelete
+    );
+    
+    if (rolesWithoutPermissions.length > 0) {
+      errors.push(`Role(s) ${rolesWithoutPermissions.map(r => r.name).join(', ')} must have at least one permission`);
     }
 
-    return true;
-  };
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  }, [formData]);
 
   /**
-   * Handle form submit
+   * Handle form submit dengan validasi yang lebih baik dan mapping data yang konsisten
    */
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    const validation = validateForm();
+    
+    if (!validation.isValid) {
+      // Tampilkan semua error
+      validation.errors.forEach(error => toast.error(error));
+      return;
+    }
 
     setIsSaving(true);
     try {
+      // Mapping data dengan snake_case untuk konsistensi dengan backend
       const featureData = {
-        name: formData.name,
-        description: formData.description,
-        isActive: formData.isActive,
-        roles: formData.roles.map(role => ({
-          roleId: role.id,
-          permissions: {
-            canCreate: role.canCreate,
-            canRead: role.canRead,
-            canUpdate: role.canUpdate,
-            canDelete: role.canDelete,
-          }
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        is_active: formData.isActive, // snake_case untuk backend
+        features: formData.roles.map(role => ({
+          role_id: parseInt(role.id), // Pastikan role_id adalah number
+          can_create: role.canCreate,
+          can_read: role.canRead,
+          can_update: role.canUpdate,
+          can_delete: role.canDelete,
         }))
       };
       
+      console.log('Sending feature data:', featureData);
+      
       let response;
-      if (isEditMode && featureId) {
-        response = await fetch(`/api/rbac/features/${featureId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(featureData),
-        });
-      } else {
-        response = await fetch('/api/rbac/features', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(featureData),
-        });
-      }
+      const url = isEditMode && featureId 
+        ? `/api/rbac/features/${featureId}` 
+        : '/api/rbac/features';
+      const method = isEditMode ? 'PUT' : 'POST';
+      
+      response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(featureData),
+      });
       
       if (!response.ok) {
-        throw new Error('Failed to save feature');
+        const errorText = await response.text();
+        let errorMessage;
+        
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorJson.error || `HTTP ${response.status}: Failed to save feature`;
+        } catch {
+          errorMessage = `HTTP ${response.status}: ${errorText || 'Failed to save feature'}`;
+        }
+        
+        throw new Error(errorMessage);
       }
       
       const result = await response.json();
+      
       if (result.success) {
         const action = isEditMode ? "updated" : "created";
-        toast.success(`Feature ${action} successfully`);
+        toast.success(`Feature "${formData.name}" ${action} successfully`);
         onSuccess();
       } else {
         throw new Error(result.message || 'Failed to save feature');
       }
     } catch (error) {
       console.error("Error saving feature:", error);
-      toast.error("Failed to save feature");
       
-
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save feature';
+      toast.error(errorMessage);
     } finally {
       setIsSaving(false);
     }

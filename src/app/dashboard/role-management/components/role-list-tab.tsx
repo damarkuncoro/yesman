@@ -314,14 +314,13 @@ export function RoleListTab({
                 </TableRow>
               ) : (
                 paginatedRoles.map((role) => (
-                <TableRow key={role.id}>
+                <TableRow 
+                  key={role.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => onRoleSelect(role.id.toString())}
+                >
                   <TableCell className="font-medium">
-                    <button
-                      onClick={() => onRoleSelect(role.id.toString())}
-                      className="text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                      {role.name}
-                    </button>
+                    {role.name}
                   </TableCell>
                   <TableCell className="max-w-xs truncate">
                     {role.description}
@@ -338,27 +337,40 @@ export function RoleListTab({
                         <Button 
                           variant="ghost" 
                           className="h-8 w-8 p-0"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <IconDots className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onRoleSelect(role.id.toString())}>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation()
+                          onRoleSelect(role.id.toString())
+                        }}>
                           <IconEye className="mr-2 h-4 w-4" />
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onRoleEdit(role.id.toString())}>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation()
+                          onRoleEdit(role.id.toString())
+                        }}>
                           <IconEdit className="mr-2 h-4 w-4" />
                           Edit Role
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onRoleUserMapping(role.id.toString())}>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation()
+                          onRoleUserMapping(role.id.toString())
+                        }}>
                           <IconUsers className="mr-2 h-4 w-4" />
                           Manage Users
                         </DropdownMenuItem>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <DropdownMenuItem 
-                              onSelect={(e) => e.preventDefault()}
+                              onSelect={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                              }}
                               className="text-red-600 focus:text-red-600"
                               disabled={deletingRoleId === role.id.toString()}
                             >

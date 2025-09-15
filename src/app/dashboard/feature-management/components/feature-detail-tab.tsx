@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/shadcn/ui/button";
 import { Badge } from "@/components/shadcn/ui/badge";
 import {
@@ -69,11 +69,11 @@ export function FeatureDetailTab({
   const [isLoading, setIsLoading] = useState(true);
 
   /**
-   * Fetch detail feature dari API
+   * Fetch detail feature dari API dengan error handling yang lebih baik
    * @param id - ID feature yang akan diambil (number)
    * @returns Promise<FeatureDetail | null> - Detail feature atau null jika tidak ditemukan
    */
-  const fetchFeatureDetail = async (id: number): Promise<FeatureDetail | null> => {
+  const fetchFeatureDetail = useCallback(async (id: number): Promise<FeatureDetail | null> => {
     try {
       const response = await fetch(`/api/rbac/features/${id}`, {
         method: 'GET',
@@ -87,66 +87,130 @@ export function FeatureDetailTab({
           console.warn(`Feature dengan ID ${id} tidak ditemukan`);
           return null;
         }
-        throw new Error(`HTTP error! status: ${response.status}`);
+        
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to fetch feature detail'}`);
       }
 
       const result = await response.json();
       
       if (!result.success) {
-        throw new Error(result.message || 'Gagal mengambil detail feature');
+        throw new Error(result.message || 'API returned unsuccessful response');
       }
 
-      return result.data;
+      // Mapping data dari backend (snake_case) ke frontend (camelCase)
+      const data = result.data;
+      return {
+        id: data.id,
+        name: data.name,
+        description: data.description,
+        category: data.category,
+        createdAt: data.created_at || data.createdAt,
+        roles: Array.isArray(data.features) ? data.features.map((feature: any) => ({
+          id: feature.role_id || feature.roleId,
+          name: feature.role_name || feature.roleName || `Role ${feature.role_id || feature.roleId}`,
+          permissions: {
+            canCreate: feature.can_create ?? feature.canCreate ?? false,
+            canRead: feature.can_read ?? feature.canRead ?? false,
+            canUpdate: feature.can_update ?? feature.canUpdate ?? false,
+            canDelete: feature.can_delete ?? feature.canDelete ?? false,
+          }
+        })) : [],
+        policies: Array.isArray(data.policies) ? data.policies.map((policy: any) => ({
+          id: policy.id,
+          attribute: policy.attribute,
+          operator: policy.operator,
+          value: policy.value,
+          description: policy.description,
+          createdAt: policy.created_at || policy.createdAt,
+        })) : []
+      };
     } catch (error) {
       console.error('Error fetching feature detail:', error);
+      
+      // Re-throw dengan pesan yang lebih informatif
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error('Network error: Unable to connect to server');
+      }
       throw error;
     }
-  };
+  }, []);
 
   /**
-   * Load feature detail saat featureId berubah
+   * Load feature detail saat featureId berubah dengan retry mechanism dan cleanup
    */
   useEffect(() => {
+    let isMounted = true;
+    let retryCount = 0;
+    const maxRetries = 3;
+    
     const loadFeatureDetail = async () => {
       if (!featureId) {
-        setFeatureDetail(null);
-        setIsLoading(false);
+        if (isMounted) {
+          setFeatureDetail(null);
+          setIsLoading(false);
+        }
         return;
       }
 
+      if (!isMounted) return;
+      
       setIsLoading(true);
       try {
         const detail = await fetchFeatureDetail(featureId);
-        setFeatureDetail(detail);
+        if (isMounted) {
+          setFeatureDetail(detail);
+        }
       } catch (error) {
         console.error("Error loading feature detail:", error);
-        setFeatureDetail(null);
+        
+        if (isMounted) {
+          // Retry logic untuk network errors
+          if (retryCount < maxRetries && error instanceof Error && 
+              (error.message.includes('Network error') || error.message.includes('fetch'))) {
+            retryCount++;
+            console.log(`Retrying feature detail fetch... Attempt ${retryCount}/${maxRetries}`);
+            setTimeout(() => loadFeatureDetail(), 1000 * retryCount);
+            return;
+          }
+          
+          setFeatureDetail(null);
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadFeatureDetail();
-  }, [featureId]);
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, [featureId, fetchFeatureDetail]);
 
   /**
-   * Render CRUD permission badges
+   * Render CRUD permission badges dengan memoization untuk performance
    */
-  const renderCRUDPermissions = (permissions: Role['permissions']) => {
+  const renderCRUDPermissions = useCallback((permissions: Role['permissions']) => {
     const permissionList = [
-      { key: "canCreate" as keyof Role['permissions'], label: "C", title: "Create" },
-      { key: "canRead" as keyof Role['permissions'], label: "R", title: "Read" },
-      { key: "canUpdate" as keyof Role['permissions'], label: "U", title: "Update" },
-      { key: "canDelete" as keyof Role['permissions'], label: "D", title: "Delete" },
+      { key: "canCreate" as keyof Role['permissions'], label: "C", title: "Create", color: "bg-green-500" },
+      { key: "canRead" as keyof Role['permissions'], label: "R", title: "Read", color: "bg-blue-500" },
+      { key: "canUpdate" as keyof Role['permissions'], label: "U", title: "Update", color: "bg-yellow-500" },
+      { key: "canDelete" as keyof Role['permissions'], label: "D", title: "Delete", color: "bg-red-500" },
     ];
 
     return (
       <div className="flex gap-1">
-        {permissionList.map(({ key, label, title }) => (
+        {permissionList.map(({ key, label, title, color }) => (
           <Badge
             key={key}
             variant={permissions[key] ? "default" : "secondary"}
-            className="w-6 h-6 p-0 flex items-center justify-center text-xs"
+            className={`w-6 h-6 p-0 flex items-center justify-center text-xs ${
+              permissions[key] ? color + ' text-white' : 'bg-gray-200 text-gray-500'
+            }`}
             title={`${title}: ${permissions[key] ? "Allowed" : "Denied"}`}
           >
             {permissions[key] ? (
@@ -158,34 +222,45 @@ export function FeatureDetailTab({
         ))}
       </div>
     );
-  };
+  }, []);
 
 
 
+  // Memoized loading component
+  const LoadingComponent = useMemo(() => (
+    <Card>
+      <CardContent className="p-6">
+        <div className="flex items-center justify-center space-x-2">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+          <span className="text-gray-600">Loading feature detail...</span>
+        </div>
+      </CardContent>
+    </Card>
+  ), []);
+  
+  // Memoized not found component
+  const NotFoundComponent = useMemo(() => (
+    <Card>
+      <CardContent className="p-6">
+        <div className="text-center space-y-4">
+          <div className="text-gray-500">
+            {featureId ? 'Feature not found or failed to load.' : 'No feature selected.'}
+          </div>
+          <Button onClick={onBack} variant="outline">
+            <IconArrowLeft className="w-4 h-4 mr-2" />
+            Back to List
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  ), [featureId, onBack]);
+  
   if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="text-center">Loading feature detail...</div>
-        </CardContent>
-      </Card>
-    );
+    return LoadingComponent;
   }
 
   if (!featureDetail) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="text-center">
-            <p className="text-muted-foreground mb-4">Feature not found</p>
-            <Button onClick={onBack} variant="outline">
-              <IconArrowLeft className="mr-2 h-4 w-4" />
-              Back to List
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return NotFoundComponent;
   }
 
   return (

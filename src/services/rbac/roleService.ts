@@ -62,7 +62,7 @@ export class RoleService {
    * @throws RoleNotFoundError jika role tidak ditemukan
    * @throws DuplicateRoleError jika nama sudah ada
    */
-  async updateRole(id: number, roleData: Partial<CreateRoleInput>): Promise<Role> {
+  async updateRole(id: number, roleData: Partial<CreateRoleInput & { grants_all?: boolean; features?: any[] }>): Promise<Role> {
     // Cek apakah role ada
     const existingRole = await this.getRoleById(id);
     
@@ -74,9 +74,43 @@ export class RoleService {
       }
     }
 
-    const updatedRole = await roleRepository.update(id, roleData);
+    // Mapping field grants_all (snake_case dari frontend) ke grantsAll (camelCase untuk database)
+    const mappedRoleData: any = { ...roleData };
+    if ('grants_all' in roleData) {
+      mappedRoleData.grantsAll = roleData.grants_all;
+      delete mappedRoleData.grants_all;
+    }
+    
+    // Handle features array - hapus dari mappedRoleData karena tidak disimpan di tabel roles
+    const featuresArray = roleData.features;
+    if ('features' in mappedRoleData) {
+      delete mappedRoleData.features;
+    }
+
+    console.log('RoleService.updateRole - Original data:', roleData);
+    console.log('RoleService.updateRole - Mapped data:', mappedRoleData);
+    console.log('RoleService.updateRole - Features array:', featuresArray);
+
+    const updatedRole = await roleRepository.update(id, mappedRoleData);
     if (!updatedRole) {
       throw new RBACError(`Gagal mengupdate role dengan ID ${id}`);
+    }
+    
+    // Proses features array jika ada
+    if (featuresArray && Array.isArray(featuresArray)) {
+      const { roleFeatureService } = await import('./roleFeatureService');
+      
+      for (const feature of featuresArray) {
+        console.log('Processing feature:', feature);
+        await roleFeatureService.setPermission({
+          roleId: id,
+          featureId: feature.feature_id,
+          can_create: feature.can_create,
+          can_read: feature.can_read,
+          can_update: feature.can_update,
+          can_delete: feature.can_delete
+        });
+      }
     }
     
     return updatedRole;

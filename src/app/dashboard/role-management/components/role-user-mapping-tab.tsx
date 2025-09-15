@@ -27,8 +27,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shadcn/ui/select"
-import { IconSearch, IconUserPlus, IconUserMinus, IconCalendar } from "@tabler/icons-react"
+import { IconSearch, IconUserPlus, IconUserMinus, IconCalendar, IconX } from "@tabler/icons-react"
 import { toast } from "sonner"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shadcn/ui/dialog"
 
 // Interface untuk Role
 interface Role {
@@ -39,13 +47,20 @@ interface Role {
 // Interface untuk User Mapping
 interface UserMapping {
   id: string
-  username: string
+  name: string
   email: string
-  fullName: string
   status: string
   assignedAt: string
   assignedBy: string
-  expiresAt: string | null
+  expiresAt?: string
+}
+
+// Interface untuk Available User (untuk assign)
+interface AvailableUser {
+  id: string
+  name: string
+  email: string
+  active: boolean
 }
 
 interface RoleUserMappingTabProps {
@@ -64,6 +79,13 @@ export function RoleUserMappingTab({ selectedRoleId }: RoleUserMappingTabProps) 
   const [availableRoles, setAvailableRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingRoles, setLoadingRoles] = useState(false)
+  const [showAssignDialog, setShowAssignDialog] = useState(false)
+  const [availableUsers, setAvailableUsers] = useState<AvailableUser[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [assignSearchTerm, setAssignSearchTerm] = useState("")
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([])
+  const [assigningUsers, setAssigningUsers] = useState(false)
+  const [removingUserId, setRemovingUserId] = useState<string | null>(null)
 
   /**
    * Fetch available roles dari API
@@ -85,7 +107,7 @@ export function RoleUserMappingTab({ selectedRoleId }: RoleUserMappingTabProps) 
       }
 
       const data = await response.json()
-      setAvailableRoles(data.roles || [])
+      setAvailableRoles(data.data?.roles || [])
     } catch (error) {
       console.error('Error fetching roles:', error)
       toast.error('Failed to load roles')
@@ -110,14 +132,25 @@ export function RoleUserMappingTab({ selectedRoleId }: RoleUserMappingTabProps) 
       })
 
       if (!response.ok) {
-        throw new Error('Failed to fetch user mappings')
+        const data = await response.json()
+        
+        // Handle specific error cases
+        if (response.status === 404) {
+          toast.error('Role tidak ditemukan atau telah dihapus')
+          setUserMappings([])
+        } else if (response.status === 403) {
+          toast.error('Anda tidak memiliki izin untuk melihat user mapping role ini')
+        } else {
+          toast.error(data.message || 'Gagal memuat user mappings')
+        }
+        return
       }
 
       const data = await response.json()
       setUserMappings(data.users || [])
     } catch (error) {
       console.error('Error fetching user mappings:', error)
-      toast.error('Failed to load user mappings')
+      toast.error('Terjadi kesalahan saat memuat user mappings')
       setUserMappings([])
     } finally {
       setLoading(false)
@@ -155,9 +188,8 @@ export function RoleUserMappingTab({ selectedRoleId }: RoleUserMappingTabProps) 
    * Filter users berdasarkan search term
    */
   const filteredUsers = userMappings.filter(user =>
-    user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.fullName.toLowerCase().includes(searchTerm.toLowerCase())
+    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   /**
@@ -180,7 +212,7 @@ export function RoleUserMappingTab({ selectedRoleId }: RoleUserMappingTabProps) 
   /**
    * Render expiry information
    */
-  const renderExpiryInfo = (expiresAt: string | null) => {
+  const renderExpiryInfo = (expiresAt?: string) => {
     if (!expiresAt) {
       return (
         <Badge variant="outline">
@@ -225,9 +257,49 @@ export function RoleUserMappingTab({ selectedRoleId }: RoleUserMappingTabProps) 
       return
     }
 
+    setRemovingUserId(userId)
     try {
-      const response = await fetch(`/api/roles/${currentRoleId}/users/${userId}`, {
+      const response = await fetch(`/api/roles/${currentRoleId}/users`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ userId })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        
+        if (response.status === 404) {
+          toast.error('User atau role tidak ditemukan')
+        } else if (response.status === 403) {
+          toast.error('Anda tidak memiliki izin untuk menghapus user dari role ini')
+        } else {
+          toast.error(errorData.message || 'Gagal menghapus user dari role')
+        }
+        return
+      }
+      
+      setUserMappings(prev => prev.filter(user => user.id !== userId))
+      toast.success(`User ${username} berhasil dihapus dari role`)
+    } catch (error) {
+      console.error('Error removing user from role:', error)
+      toast.error('Terjadi kesalahan saat menghapus user dari role')
+    } finally {
+      setRemovingUserId(null)
+    }
+  }
+
+  /**
+   * Fetch available users yang belum memiliki role ini
+   */
+  const fetchAvailableUsers = async () => {
+    if (!accessToken) return
+
+    try {
+      setLoadingUsers(true)
+      const response = await fetch('/api/users', {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
@@ -235,15 +307,108 @@ export function RoleUserMappingTab({ selectedRoleId }: RoleUserMappingTabProps) 
       })
 
       if (!response.ok) {
-        throw new Error('Failed to remove user from role')
+        throw new Error('Failed to fetch users')
+      }
+
+      const data = await response.json()
+      const allUsers = data.data?.users || []
+      
+      // Filter users yang belum memiliki role ini
+      const currentUserIds = userMappings.map(um => um.id)
+      const availableUsersFiltered = allUsers.filter((user: any) => 
+        !currentUserIds.includes(user.id.toString()) && user.active
+      )
+      
+      setAvailableUsers(availableUsersFiltered.map((user: any) => ({
+        id: user.id.toString(),
+        name: user.name,
+        email: user.email,
+        active: user.active
+      })))
+    } catch (error) {
+      console.error('Error fetching available users:', error)
+      toast.error('Failed to load available users')
+    } finally {
+      setLoadingUsers(false)
+    }
+  }
+
+  /**
+   * Handle assign users to role
+   */
+  const handleAssignUsers = async () => {
+    if (!accessToken || !currentRoleId || selectedUsers.length === 0) {
+      toast.error('Please select at least one user')
+      return
+    }
+
+    try {
+      setAssigningUsers(true)
+      
+      // Assign each selected user
+      const promises = selectedUsers.map(userId => 
+        fetch(`/api/roles/${currentRoleId}/users`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ userId })
+        })
+      )
+      
+      const responses = await Promise.all(promises)
+      const results = await Promise.all(
+        responses.map(async (response, index) => ({
+          success: response.ok,
+          status: response.status,
+          data: response.ok ? await response.json() : await response.json().catch(() => ({})),
+          userId: selectedUsers[index]
+        }))
+      )
+      
+      const successful = results.filter(r => r.success)
+      const failed = results.filter(r => !r.success)
+      
+      if (successful.length > 0) {
+        toast.success(`Berhasil menambahkan ${successful.length} user ke role`)
       }
       
-      setUserMappings(prev => prev.filter(user => user.id !== userId))
-      toast.success(`User ${username} removed from role successfully`)
+      if (failed.length > 0) {
+        const errorMessages = failed.map(f => {
+          if (f.status === 409) return "User sudah memiliki role ini"
+          if (f.status === 404) return "User atau role tidak ditemukan"
+          if (f.status === 403) return "Tidak memiliki izin"
+          return f.data.message || "Gagal menambahkan user"
+        })
+        
+        toast.error(`${failed.length} user gagal ditambahkan: ${errorMessages[0]}`)
+      }
+      
+      // Refresh user mappings if any successful
+      if (successful.length > 0) {
+        await fetchUserMappings(currentRoleId)
+        
+        // Reset and close dialog
+        setSelectedUsers([])
+        setAssignSearchTerm("")
+        setShowAssignDialog(false)
+      }
+      
     } catch (error) {
-      console.error('Error removing user from role:', error)
-      toast.error('Failed to remove user from role')
+      console.error('Error assigning users:', error)
+      toast.error('Terjadi kesalahan saat menambahkan user ke role')
+    } finally {
+      setAssigningUsers(false)
     }
+  }
+
+  /**
+   * Handle open assign dialog
+   */
+  const handleOpenAssignDialog = () => {
+    setShowAssignDialog(true)
+    fetchAvailableUsers()
   }
 
   /**
@@ -253,6 +418,14 @@ export function RoleUserMappingTab({ selectedRoleId }: RoleUserMappingTabProps) 
     const role = availableRoles.find(r => r.id === currentRoleId)
     return role?.name || "Unknown Role"
   }
+
+  /**
+   * Filter available users for assign dialog
+   */
+  const filteredAvailableUsers = availableUsers.filter(user =>
+    user.name.toLowerCase().includes(assignSearchTerm.toLowerCase()) ||
+    user.email.toLowerCase().includes(assignSearchTerm.toLowerCase())
+  )
 
   return (
     <div className="space-y-6">
@@ -281,7 +454,7 @@ export function RoleUserMappingTab({ selectedRoleId }: RoleUserMappingTabProps) 
               </Select>
             </div>
             {currentRoleId && (
-              <Button>
+              <Button onClick={handleOpenAssignDialog}>
                 <IconUserPlus className="mr-2 h-4 w-4" />
                 Assign Users
               </Button>
@@ -338,9 +511,9 @@ export function RoleUserMappingTab({ selectedRoleId }: RoleUserMappingTabProps) 
                       <TableRow key={user.id}>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{user.fullName}</div>
+                            <div className="font-medium">{user.name}</div>
                             <div className="text-sm text-muted-foreground">
-                              @{user.username} • {user.email}
+                              {user.email}
                             </div>
                           </div>
                         </TableCell>
@@ -358,13 +531,18 @@ export function RoleUserMappingTab({ selectedRoleId }: RoleUserMappingTabProps) 
                         </TableCell>
                         <TableCell>
                           <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoveUser(user.id, user.username)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <IconUserMinus className="h-4 w-4" />
-                          </Button>
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveUser(user.id, user.name)}
+                              disabled={removingUserId === user.id}
+                              className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                            >
+                              {removingUserId === user.id ? (
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-600 border-t-transparent" />
+                              ) : (
+                                <IconX className="h-4 w-4" />
+                              )}
+                            </Button>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -392,6 +570,107 @@ export function RoleUserMappingTab({ selectedRoleId }: RoleUserMappingTabProps) 
           </CardContent>
         </Card>
       )}
+
+      {/* Assign Users Dialog */}
+      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Assign Users to {getSelectedRoleName()}</DialogTitle>
+            <DialogDescription>
+              Select users to assign to this role. Only active users who don't already have this role are shown.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Search */}
+            <div className="relative">
+              <IconSearch className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search users..."
+                value={assignSearchTerm}
+                onChange={(e) => setAssignSearchTerm(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+
+            {/* User List */}
+            <div className="max-h-96 overflow-y-auto border rounded-md">
+              {loadingUsers ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Loading users...
+                </div>
+              ) : filteredAvailableUsers.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  {assignSearchTerm 
+                    ? "No users found matching your search."
+                    : "No available users to assign."
+                  }
+                </div>
+              ) : (
+                <div className="p-2 space-y-2">
+                  {filteredAvailableUsers.map((user) => (
+                    <div
+                      key={user.id}
+                      className={`flex items-center space-x-3 p-3 rounded-md cursor-pointer hover:bg-muted ${
+                        selectedUsers.includes(user.id) ? 'bg-muted border-2 border-primary' : 'border'
+                      }`}
+                      onClick={() => {
+                        setSelectedUsers(prev => 
+                          prev.includes(user.id)
+                            ? prev.filter(id => id !== user.id)
+                            : [...prev, user.id]
+                        )
+                      }}
+                    >
+                      <div className="flex-1">
+                        <div className="font-medium">{user.name}</div>
+                        <div className="text-sm text-muted-foreground">{user.email}</div>
+                      </div>
+                      {selectedUsers.includes(user.id) && (
+                        <Badge variant="default">Selected</Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {selectedUsers.length > 0 && (
+              <div className="text-sm text-muted-foreground">
+                {selectedUsers.length} user(s) selected
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAssignDialog(false)
+                setSelectedUsers([])
+                setAssignSearchTerm("")
+              }}
+              disabled={assigningUsers}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAssignUsers}
+              disabled={selectedUsers.length === 0 || assigningUsers}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+            >
+              {assigningUsers ? (
+                <>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Menambahkan...
+                </>
+              ) : (
+                `Assign (${selectedUsers.length})`
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -125,11 +125,21 @@ export function RoleCreateEditTab({ roleId, mode, onSuccess }: RoleCreateEditTab
 
       if (result.success && result.data) {
         const roleData = result.data
+        
+        // Map features dari API response ke format yang dibutuhkan frontend
+        const mappedFeatures = roleData.features ? roleData.features.map((feature: any) => ({
+          featureId: feature.feature_id?.toString() || feature.featureId?.toString() || '',
+          canCreate: feature.can_create || feature.canCreate || false,
+          canRead: feature.can_read || feature.canRead || false,
+          canUpdate: feature.can_update || feature.canUpdate || false,
+          canDelete: feature.can_delete || feature.canDelete || false
+        })) : []
+        
         setFormData({
            name: roleData.name || '',
            description: roleData.description || '',
-           grantsAll: roleData.grants_all || false,
-           features: roleData.features || []
+           grantsAll: roleData.grants_all || roleData.grantsAll || false,
+           features: mappedFeatures
          })
       }
     } catch (error) {
@@ -163,15 +173,19 @@ export function RoleCreateEditTab({ roleId, mode, onSuccess }: RoleCreateEditTab
    * Handle perubahan input form
    */
   const handleInputChange = (field: string, value: string | boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }))
-
-    // Jika grantsAll diaktifkan, clear selected features
-    if (field === 'grantsAll' && value === true) {
-      // Features akan direset melalui formData
-    }
+    setFormData(prev => {
+      const newData = {
+        ...prev,
+        [field]: value
+      }
+      
+      // Jika grantsAll diaktifkan, clear selected features
+      if (field === 'grantsAll' && value === true) {
+        newData.features = []
+      }
+      
+      return newData
+    })
   }
 
   /**
@@ -226,11 +240,15 @@ export function RoleCreateEditTab({ roleId, mode, onSuccess }: RoleCreateEditTab
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    console.log('Form submission started:', { mode, formData })
+    
+    // Validasi input
     if (!formData.name.trim()) {
       toast.error("Role name is required")
       return
     }
 
+    // Validasi: jika tidak grantsAll, harus ada minimal 1 feature
     if (!formData.grantsAll && formData.features.length === 0) {
       toast.error("Please select at least one feature or enable 'Grants All'")
       return
@@ -244,18 +262,31 @@ export function RoleCreateEditTab({ roleId, mode, onSuccess }: RoleCreateEditTab
     setLoading(true)
 
     try {
+      // Prepare payload dengan format yang benar
       const payload = {
         name: formData.name.trim(),
         description: formData.description.trim(),
         grants_all: formData.grantsAll,
-        features: formData.grantsAll ? [] : formData.features
+        // Jika grantsAll true, kirim array kosong untuk features
+        // Jika grantsAll false, kirim features yang dipilih
+        features: formData.grantsAll ? [] : formData.features.map(feature => ({
+          feature_id: parseInt(feature.featureId),
+          can_create: feature.canCreate,
+          can_read: feature.canRead,
+          can_update: feature.canUpdate,
+          can_delete: feature.canDelete
+        }))
       }
+      
+      console.log('Payload to be sent:', payload)
 
       const url = mode === 'create' 
         ? '/api/rbac/roles'
         : `/api/rbac/roles/${roleId}`
       
       const method = mode === 'create' ? 'POST' : 'PUT'
+      
+      console.log('API Request:', { url, method })
 
       const response = await fetch(url, {
         method,
@@ -267,6 +298,7 @@ export function RoleCreateEditTab({ roleId, mode, onSuccess }: RoleCreateEditTab
       })
 
       const result = await response.json()
+      console.log('API Response:', { status: response.status, result })
 
       if (!response.ok) {
         throw new Error(result.message || `Failed to ${mode} role`)
@@ -274,6 +306,7 @@ export function RoleCreateEditTab({ roleId, mode, onSuccess }: RoleCreateEditTab
 
       const action = mode === 'create' ? 'created' : 'updated'
       toast.success(`Role ${formData.name} ${action} successfully`)
+      console.log(`Role ${action} successfully:`, result)
       onSuccess()
     } catch (error) {
       console.error(`Error ${mode} role:`, error)

@@ -75,7 +75,9 @@ export async function PUT(
     }
 
     const body = await request.json();
+    console.log('API PUT /api/rbac/roles/[id] - Request body:', body);
     const updatedRole = await roleService.updateRole(roleId, body);
+    console.log('API PUT /api/rbac/roles/[id] - Updated role:', updatedRole);
     
     return NextResponse.json({
       success: true,
