@@ -1,0 +1,47 @@
+{
+  "name": "yesman-api-tests",
+  "version": "1.0.0",
+  "description": "Test suite untuk YesMan API v1",
+  "main": "api/v1/test-runner.js",
+  "scripts": {
+    "test": "node api/v1/test-runner.js",
+    "test:auth": "node api/v1/auth.test.js",
+    "test:users": "node api/v1/users.test.js",
+    "test:rbac": "node api/v1/rbac.test.js",
+    "test:abac": "node api/v1/abac.test.js",
+    "test:audit": "node api/v1/audit.test.js",
+    "test:dashboard": "node api/v1/dashboard.test.js",
+    "test:admin": "node api/v1/admin.test.js",
+    "test:dev": "API_BASE_URL=http://localhost:3000 node api/v1/test-runner.js",
+    "test:prod": "API_BASE_URL=https://your-production-url.com node api/v1/test-runner.js",
+    "test:watch": "nodemon api/v1/test-runner.js",
+    "install-deps": "npm install"
+  },
+  "keywords": [
+    "api",
+    "testing",
+    "yesman",
+    "authentication",
+    "rbac",
+    "abac"
+  ],
+  "author": "YesMan Development Team",
+  "license": "MIT",
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-org/yesman.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/yesman/issues"
+  },
+  "homepage": "https://github.com/your-org/yesman#readme"
+}
