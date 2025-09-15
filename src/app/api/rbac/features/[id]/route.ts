@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
  * Memerlukan permission 'feature_management' dengan action 'update'
  */
 async function handleUpdateFeature(
-  request: NextRequest & { user?: any; params?: { id: string } }
+  request: NextRequest & { user?: any }
 ): Promise<NextResponse> {
   try {
     const user = request.user;
@@ -126,8 +126,12 @@ async function handleUpdateFeature(
       }, { status: 401 });
     }
 
-    const { id } = request.params || {};
-    if (!id) {
+    // Extract ID from URL path
+    const url = new URL(request.url);
+    const pathSegments = url.pathname.split('/');
+    const id = pathSegments[pathSegments.length - 1];
+    
+    if (!id || id === 'features') {
       return NextResponse.json(
         { success: false, message: 'Feature ID diperlukan' },
         { status: 400 }
@@ -170,4 +174,57 @@ async function handleUpdateFeature(
 }
 
 // Export handlers dengan withFeature wrapper untuk otorisasi
+/**
+ * Handler untuk delete feature berdasarkan ID
+ * Memerlukan permission 'feature_management' dengan action 'delete'
+ */
+async function handleDeleteFeature(
+  request: NextRequest & { user?: any }
+): Promise<NextResponse> {
+  try {
+    const user = request.user;
+    if (!user) {
+      return NextResponse.json({
+        success: false,
+        message: 'User tidak terautentikasi'
+      }, { status: 401 });
+    }
+
+    // Extract ID from URL path
+    const url = new URL(request.url);
+    const pathSegments = url.pathname.split('/');
+    const id = pathSegments[pathSegments.length - 1];
+    
+    if (!id || id === 'features') {
+      return NextResponse.json(
+        { success: false, message: 'Feature ID diperlukan' },
+        { status: 400 }
+      );
+    }
+
+    const featureId = parseInt(id);
+    if (isNaN(featureId)) {
+      return NextResponse.json(
+        { success: false, message: 'Feature ID tidak valid' },
+        { status: 400 }
+      );
+    }
+
+    // Delete the feature
+    await featureService.deleteFeature(featureId);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Feature berhasil dihapus'
+    });
+  } catch (error: any) {
+    console.error('Error deleting feature:', error);
+    return NextResponse.json({
+      success: false,
+      message: error.message || 'Terjadi kesalahan saat menghapus feature'
+    }, { status: 500 });
+  }
+}
+
 export const PUT = withFeature({ feature: 'feature_management', action: 'update' })(handleUpdateFeature);
+export const DELETE = withFeature({ feature: 'feature_management', action: 'delete' })(handleDeleteFeature);

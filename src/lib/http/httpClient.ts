@@ -1,5 +1,7 @@
 import type { ApiResponse, RequestOptions, HttpMethod } from "../types";
 import { handleUnauthorizedRedirect } from "../auth/authRedirectUtils";
+import { RefreshTokenService } from "../auth/refreshTokenService";
+import { TokenService } from "../auth/tokenService";
 
 /**
  * Interface untuk HTTP client configuration
@@ -202,11 +204,44 @@ export const publicHttpClient = new HttpClient({
 
 // Add default interceptors
 httpClient.addRequestInterceptor(async (config) => {
-  // Log requests in development
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`🚀 ${config.method?.toUpperCase()} ${config.url}`);
+  // Skip token validation untuk public endpoints
+  if (config.url?.includes('/auth/login') || 
+      config.url?.includes('/auth/register') ||
+      config.url?.includes('/auth/refresh') ||
+      (config as any).requireAuth === false) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🚀 ${config.method?.toUpperCase()} ${config.url} (public)`);
+    }
+    return config;
   }
-  return config;
+
+  // Untuk authenticated requests, pastikan token valid
+  try {
+    const validToken = await RefreshTokenService.ensureValidToken();
+    
+    // Update authorization header dengan token yang valid
+    if (validToken) {
+      (config.headers as Record<string, string>)['Authorization'] = `Bearer ${validToken}`;
+    }
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🚀 ${config.method?.toUpperCase()} ${config.url} (authenticated)`);
+    }
+    
+    return config;
+  } catch (error) {
+    console.error('❌ Token validation failed:', error);
+    
+    // Clear tokens dan redirect ke login
+    TokenService.clearTokens();
+    handleUnauthorizedRedirect({
+      loginUrl: '/login',
+      preserveCurrentPath: true,
+      clearTokens: true
+    });
+    
+    throw error;
+  }
 });
 
 httpClient.addResponseInterceptor(async (response) => {
@@ -215,14 +250,16 @@ httpClient.addResponseInterceptor(async (response) => {
     console.log(`✅ ${response.status} ${response.url}`);
   }
   
-  // Handle 401 Unauthorized - redirect ke login page
-  if (response.status === 401) {
+  // Jika masih ada 401/403 setelah request interceptor, berarti refresh gagal
+  if (response.status === 401 || response.status === 403) {
+    console.error('❌ Authentication failed after token validation');
+    TokenService.clearTokens();
+    
     // Cek apakah ada header redirect dari server
     const redirectTo = response.headers.get('X-Redirect-To');
     const redirectReason = response.headers.get('X-Redirect-Reason');
     
     if (redirectTo && redirectReason === 'token-not-found') {
-      // Redirect spesifik untuk "Token tidak ditemukan"
       console.log('🔄 Token tidak ditemukan, redirecting to login...');
       handleUnauthorizedRedirect({
         loginUrl: redirectTo,
@@ -230,7 +267,6 @@ httpClient.addResponseInterceptor(async (response) => {
         clearTokens: true
       });
     } else {
-      // Fallback untuk 401 lainnya
       handleUnauthorizedRedirect({
         loginUrl: '/login',
         preserveCurrentPath: true,

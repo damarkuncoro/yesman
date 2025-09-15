@@ -30,10 +30,20 @@ export interface TokenPair {
 }
 
 /**
- * Response dari refresh token operation
+ * Response from refresh token operation
  */
 export interface RefreshTokenResponse {
   accessToken: string;
+}
+
+/**
+ * Token data untuk localStorage storage
+ * Kompatibilitas dengan tokenService.ts yang lama
+ */
+export interface TokenData {
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: number;
 }
 
 /**

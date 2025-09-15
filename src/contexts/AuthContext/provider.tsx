@@ -16,6 +16,8 @@ import {
   logoutAction, 
   updateUserAction 
 } from './actions';
+import { RefreshTokenService } from '@/lib/auth/refreshTokenService';
+import { TokenService } from '@/lib/auth/tokenService';
 
 /**
  * Props untuk AuthProvider component
@@ -32,7 +34,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [state, dispatch] = useReducer(authReducer, initialAuthState);
 
   /**
-   * Effect untuk check authentication status saat component mount
+   * Effect untuk check authentication status dan setup auto-refresh saat component mount
    * Mencoba restore session dari localStorage
    */
   useEffect(() => {
@@ -40,23 +42,71 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         if (typeof window === 'undefined') return;
         
-        const token = localStorage.getItem('accessToken');
+        const token = TokenService.getAccessToken();
         const userData = localStorage.getItem('user');
         
         if (token && userData) {
           const user = JSON.parse(userData) as AuthUser;
-          dispatch(loginSuccessAction(user, token));
+          
+          // Cek apakah token masih valid
+          if (!TokenService.isTokenExpired()) {
+            dispatch(loginSuccessAction(user, token));
+          } else {
+            // Token expired, coba refresh
+            try {
+              const newToken = await RefreshTokenService.refreshToken();
+              dispatch(loginSuccessAction(user, newToken));
+            } catch {
+              // Refresh gagal, clear tokens
+              TokenService.clearTokens();
+              localStorage.removeItem('user');
+              dispatch(setLoadingAction(false));
+            }
+          }
         } else {
           dispatch(setLoadingAction(false));
         }
       } catch (error) {
         console.error('Error checking auth status:', error);
+        TokenService.clearTokens();
+        localStorage.removeItem('user');
         dispatch(setLoadingAction(false));
       }
     };
 
     checkAuthStatus();
   }, []);
+
+  /**
+   * Setup auto-refresh dan event listeners
+   */
+  useEffect(() => {
+    let clearAutoRefresh: (() => void) | null = null;
+    
+    // Setup auto-refresh jika user sudah login
+     if (state.user && state.accessToken) {
+       clearAutoRefresh = RefreshTokenService.setupAutoRefresh(5); // Check setiap 5 menit
+     }
+
+    // Listen untuk token refresh failed event
+    const handleTokenRefreshFailed = () => {
+      console.log('🔄 Token refresh failed, logging out user');
+      dispatch(logoutAction());
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('auth:token-refresh-failed', handleTokenRefreshFailed);
+    }
+
+    return () => {
+      if (clearAutoRefresh) {
+        clearAutoRefresh();
+      }
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('auth:token-refresh-failed', handleTokenRefreshFailed);
+      }
+    };
+  }, [state.user, state.accessToken]);
 
   /**
    * Function untuk melakukan login
@@ -71,7 +121,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error(response.message || 'Login gagal');
       }
       
-      dispatch(loginSuccessAction(response.data.user, response.data.accessToken));
+      const { user, accessToken, refreshToken } = response.data;
+      
+      // Simpan tokens menggunakan TokenService
+       const expiresAt = TokenService.getTokenExpiration(accessToken);
+       TokenService.setTokens({
+         accessToken,
+         refreshToken,
+         expiresAt: expiresAt || undefined
+       });
+      
+      dispatch(loginSuccessAction(user, accessToken));
     } catch (error) {
       dispatch(setLoadingAction(false));
       throw error;
@@ -108,9 +168,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Call logout API untuk invalidate refresh token
       await api.post('/auth/logout');
       
+      // Clear tokens menggunakan TokenService
+      TokenService.clearTokens();
       dispatch(logoutAction());
     } catch (error) {
       // Tetap logout meskipun API call gagal
+      TokenService.clearTokens();
       dispatch(logoutAction());
       console.error('Logout error:', error);
     }
@@ -141,15 +204,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
    */
   const refreshToken = async (): Promise<void> => {
     try {
-      const response = await publicApi.post('/auth/refresh') as AuthApiResponse;
+      const newAccessToken = await RefreshTokenService.refreshToken();
       
-      if (!response.success) {
-        throw new Error('Token refresh gagal');
+      // Update state dengan token baru
+      if (state.user) {
+        dispatch(loginSuccessAction(state.user, newAccessToken));
       }
-      
-      dispatch(loginSuccessAction(response.data.user, response.data.accessToken));
     } catch (error) {
-      // Jika refresh gagal, logout user
+      console.error('Refresh token error:', error);
+      
+      // Clear tokens dan logout
+      TokenService.clearTokens();
       dispatch(logoutAction());
       throw error;
     }

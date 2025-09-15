@@ -158,6 +158,12 @@ export class AuthErrorHandler {
         return authErrorHandlerInstance.validationError([error.message]);
       }
       
+      // JSON parsing errors
+      if (error.message.includes('Invalid JSON format in request body')) {
+        authErrorHandlerInstance.logError(error, context, 'info');
+        return authErrorHandlerInstance.validationError([error.message]);
+      }
+      
       // General validation errors
       if (error.message.includes('validation') || error.message.includes('invalid')) {
         authErrorHandlerInstance.logError(error, context, 'info');

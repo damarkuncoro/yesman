@@ -75,10 +75,14 @@ export function FeatureDetailTab({
    */
   const fetchFeatureDetail = useCallback(async (id: number): Promise<FeatureDetail | null> => {
     try {
+      // Ambil token dari localStorage
+      const token = localStorage.getItem('accessToken');
+      
       const response = await fetch(`/api/rbac/features/${id}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
       });
 

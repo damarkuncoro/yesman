@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Token</title>
+</head>
+<body>
+    <h1>Debug Token Storage</h1>
+    <button onclick="setToken()">Set Token</button>
+    <button onclick="getToken()">Get Token</button>
+    <button onclick="testAPI()">Test API</button>
+    <button onclick="clearToken()">Clear Token</button>
+    <div id="output"></div>
+
+    <script>
+        const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIwLCJlbWFpbCI6ImFkbWluQGNvbXBhbnkuY29tIiwiaWF0IjoxNzU3OTI1NDE3LCJleHAiOjE3NTc5MjYzMTd9.-hGZ9dkRsj_bmSAxJbFEO2DLqQ4hTXVT8X59CnE6_kc';
+        
+        // Auto-set token on page load
+        window.onload = function() {
+            localStorage.setItem('accessToken', token);
+            document.getElementById('output').innerHTML = 'Token automatically set in localStorage on page load';
+        };
+        
+        function setToken() {
+            localStorage.setItem('accessToken', token);
+            document.getElementById('output').innerHTML = 'Token manually set in localStorage';
+        }
+        
+        function getToken() {
+            const storedToken = localStorage.getItem('accessToken');
+            document.getElementById('output').innerHTML = 'Stored token: ' + (storedToken || 'Not found');
+        }
+        
+        async function testAPI() {
+            const storedToken = localStorage.getItem('accessToken');
+            try {
+                const response = await fetch('/api/rbac/features', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(storedToken && { 'Authorization': `Bearer ${storedToken}` }),
+                    },
+                });
+                
+                const result = await response.json();
+                document.getElementById('output').innerHTML = 'API Response: ' + JSON.stringify(result, null, 2);
+            } catch (error) {
+                document.getElementById('output').innerHTML = 'API Error: ' + error.message;
+            }
+        }
+        
+        function clearToken() {
+            localStorage.removeItem('accessToken');
+            document.getElementById('output').innerHTML = 'Token cleared from localStorage';
+        }
+    </script>
+</body>
+</html>

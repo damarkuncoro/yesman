@@ -46,7 +46,10 @@ export class DefaultRouteMatcher implements RouteMatcher {
     '/_next/',
     '/api/auth/',
     '/api/v1/auth/',
-    '/favicon.ico'
+    '/favicon.ico',
+    '/debug-features.html',
+    '/test-features.html',
+    '/debug-auth-flow.html',
   ];
 
   /**

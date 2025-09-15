@@ -51,27 +51,50 @@ export function FeatureListTab({
    */
   const fetchFeatures = async (): Promise<Feature[]> => {
     try {
+      // Ambil token dari localStorage
+      const token = localStorage.getItem('accessToken');
+      
+      console.log('🔍 Debug - Token from localStorage:', token ? 'Found' : 'Not found');
+      console.log('🔍 Debug - Token preview:', token ? token.substring(0, 50) + '...' : 'No token');
+      
+      if (!token) {
+        console.warn('⚠️ No access token found in localStorage');
+        throw new Error('No access token found. Please login again.');
+      }
+      
       const response = await fetch('/api/rbac/features', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
       });
       
+      console.log('🔍 Debug - API Response status:', response.status);
+      
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('❌ API Error:', errorText);
         throw new Error(`HTTP ${response.status}: ${errorText || 'Failed to fetch features'}`);
       }
       
       const result = await response.json();
       
+      console.log('✅ Raw API response:', result);
+      console.log('✅ Features count:', result.data ? result.data.length : 0);
+
       if (!result.success) {
         throw new Error(result.message || 'API returned unsuccessful response');
       }
       
-      return Array.isArray(result.data) ? result.data : [];
+      const features = Array.isArray(result.data?.features) ? result.data.features : 
+                Array.isArray(result.data) ? result.data : [];
+      console.log('✅ Processed features:', features.length);
+      
+      return features;
+
     } catch (error) {
-      console.error('Error fetching features:', error);
+      console.error('❌ Error fetching features:', error);
       // Re-throw dengan pesan yang lebih informatif
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new Error('Network error: Unable to connect to server');
@@ -94,11 +117,13 @@ export function FeatureListTab({
       setIsLoading(true);
       try {
         const featuresData = await fetchFeatures();
+        console.log('🔄 Features data received:', featuresData.length);
         if (isMounted) {
           setFeatures(featuresData);
+          console.log('✅ Features state updated with', featuresData.length, 'items');
         }
       } catch (error) {
-        console.error('Failed to load features:', error);
+        console.error('❌ Failed to load features:', error);
         
         if (isMounted) {
           // Retry logic untuk network errors
@@ -131,16 +156,22 @@ export function FeatureListTab({
    * Filter features berdasarkan search term dengan memoization untuk performance
    */
   const filteredFeatures = useMemo(() => {
+    console.log('🔍 Filtering features - Total features:', features.length, 'Search term:', searchTerm);
+    
     if (!searchTerm.trim()) {
+      console.log('✅ No search term, returning all', features.length, 'features');
       return features;
     }
     
     const searchLower = searchTerm.toLowerCase().trim();
-    return features.filter((feature) =>
+    const filtered = features.filter((feature) =>
       feature.name.toLowerCase().includes(searchLower) ||
       feature.description.toLowerCase().includes(searchLower) ||
       (feature.category && feature.category.toLowerCase().includes(searchLower))
     );
+    
+    console.log('✅ Filtered features:', filtered.length, 'out of', features.length);
+    return filtered;
   }, [features, searchTerm]);
 
   /**

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Auth Flow - RBAC Features Issue</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .log { max-height: 400px; overflow-y: auto; font-size: 12px; }
+        .step { margin: 10px 0; padding: 10px; border-left: 4px solid #007bff; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Auth Flow - RBAC Features Issue</h1>
+    
+    <div class="section warning">
+        <h3>⚠️ Issue Description</h3>
+        <p><strong>Problem:</strong> API <code>/api/rbac/features</code> returns data but UI shows "No features found"</p>
+        <p><strong>Expected:</strong> Features should be displayed in the UI table</p>
+        <p><strong>Actual:</strong> Empty table with "No features found" message</p>
+    </div>
+
+    <div class="section info">
+        <h3>🧪 Test Controls</h3>
+        <button onclick="runDiagnostic()">🔍 Run Full Diagnostic</button>
+        <button onclick="checkLocalStorage()">📦 Check localStorage</button>
+        <button onclick="testLogin()">🔐 Test Login</button>
+        <button onclick="testFeaturesAPI()">🎯 Test Features API</button>
+        <button onclick="simulateUIFlow()">🖥️ Simulate UI Flow</button>
+        <button onclick="clearAll()">🗑️ Clear All</button>
+    </div>
+
+    <div class="section" id="results">
+        <h3>📊 Diagnostic Results</h3>
+        <div id="output" class="log"></div>
+    </div>
+
+    <script>
+        let logOutput = document.getElementById('output');
+        let diagnosticResults = {};
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info';
+            logOutput.innerHTML += `<div class="${className}">${icon} [${timestamp}] ${message}</div>`;
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+        
+        function logStep(step, message) {
+            logOutput.innerHTML += `<div class="step"><strong>Step ${step}:</strong> ${message}</div>`;
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+        
+        function clearAll() {
+            localStorage.clear();
+            logOutput.innerHTML = '';
+            diagnosticResults = {};
+            log('All data cleared', 'info');
+        }
+        
+        async function runDiagnostic() {
+            log('🚀 Starting Full Diagnostic...', 'info');
+            clearAll();
+            
+            // Step 1: Check initial state
+            logStep(1, 'Checking Initial State');
+            checkLocalStorage();
+            
+            await sleep(1000);
+            
+            // Step 2: Test Login
+            logStep(2, 'Testing Login Process');
+            await testLogin();
+            
+            await sleep(1000);
+            
+            // Step 3: Verify token storage
+            logStep(3, 'Verifying Token Storage');
+            checkLocalStorage();
+            
+            await sleep(1000);
+            
+            // Step 4: Test Features API
+            logStep(4, 'Testing Features API');
+            await testFeaturesAPI();
+            
+            await sleep(1000);
+            
+            // Step 5: Simulate UI behavior
+            logStep(5, 'Simulating UI Component Behavior');
+            await simulateUIFlow();
+            
+            // Step 6: Analysis
+            logStep(6, 'Analysis and Recommendations');
+            analyzeResults();
+        }
+        
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        
+        function checkLocalStorage() {
+            log('=== Checking localStorage ===');
+            
+            const token = localStorage.getItem('accessToken');
+            const user = localStorage.getItem('user');
+            
+            diagnosticResults.hasToken = !!token;
+            diagnosticResults.hasUser = !!user;
+            
+            if (token) {
+                log(`Token found: ${token.substring(0, 50)}...`, 'success');
+                
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    const now = Math.floor(Date.now() / 1000);
+                    const isExpired = payload.exp < now;
+                    
+                    diagnosticResults.tokenExpired = isExpired;
+                    diagnosticResults.tokenPayload = payload;
+                    
+                    log(`Token expires: ${new Date(payload.exp * 1000).toLocaleString()}`);
+                    log(`Current time: ${new Date().toLocaleString()}`);
+                    log(`Token expired: ${isExpired}`, isExpired ? 'error' : 'success');
+                    log(`User ID: ${payload.userId}`);
+                    log(`Email: ${payload.email}`);
+                } catch (e) {
+                    log(`Error decoding token: ${e.message}`, 'error');
+                    diagnosticResults.tokenDecodeError = e.message;
+                }
+            } else {
+                log('No token found in localStorage', 'error');
+            }
+            
+            if (user) {
+                log(`User data found`, 'success');
+                try {
+                    const userData = JSON.parse(user);
+                    diagnosticResults.userData = userData;
+                    log(`User: ${userData.name} (${userData.email})`);
+                } catch (e) {
+                    log(`Error parsing user data: ${e.message}`, 'error');
+                }
+            } else {
+                log('No user data found in localStorage', 'error');
+            }
+        }
+        
+        async function testLogin() {
+            log('=== Testing Login ===');
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@example.com',
+                        password: 'admin123'
+                    })
+                });
+                
+                const data = await response.json();
+                diagnosticResults.loginResponse = { status: response.status, data };
+                
+                log(`Login response status: ${response.status}`);
+                log(`Login response: ${JSON.stringify(data, null, 2)}`);
+                
+                if (data.success && data.data.accessToken) {
+                    // Simulate AuthContext behavior
+                    localStorage.setItem('accessToken', data.data.accessToken);
+                    localStorage.setItem('user', JSON.stringify(data.data.user));
+                    log('Token and user data saved to localStorage', 'success');
+                    diagnosticResults.loginSuccess = true;
+                } else {
+                    log('Login failed or no token received', 'error');
+                    diagnosticResults.loginSuccess = false;
+                }
+            } catch (error) {
+                log(`Login error: ${error.message}`, 'error');
+                diagnosticResults.loginError = error.message;
+            }
+        }
+        
+        async function testFeaturesAPI() {
+            log('=== Testing Features API ===');
+            
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                log('No token found. Cannot test API.', 'error');
+                diagnosticResults.apiTestSkipped = true;
+                return;
+            }
+            
+            try {
+                log(`Using token: ${token.substring(0, 50)}...`);
+                
+                const response = await fetch('/api/rbac/features', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                diagnosticResults.apiResponse = { status: response.status, data };
+                
+                log(`Features API status: ${response.status}`);
+                log(`Features API response: ${JSON.stringify(data, null, 2)}`);
+                
+                if (response.ok && data.success) {
+                    const featuresCount = data.data?.length || 0;
+                    diagnosticResults.featuresCount = featuresCount;
+                    log(`API success. Found ${featuresCount} features`, 'success');
+                    
+                    if (featuresCount > 0) {
+                        log(`Sample feature: ${JSON.stringify(data.data[0], null, 2)}`);
+                        diagnosticResults.sampleFeature = data.data[0];
+                    } else {
+                        log('API returned empty features array', 'warning');
+                    }
+                } else {
+                    log(`API failed: ${data.message || 'Unknown error'}`, 'error');
+                    diagnosticResults.apiError = data.message;
+                }
+            } catch (error) {
+                log(`API error: ${error.message}`, 'error');
+                diagnosticResults.apiError = error.message;
+            }
+        }
+        
+        async function simulateUIFlow() {
+            log('=== Simulating UI Component Flow ===');
+            
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                log('No token available for UI simulation', 'error');
+                return;
+            }
+            
+            // Simulate FeatureListTab component behavior
+            log('Simulating FeatureListTab component...');
+            
+            try {
+                // Step 1: Component mounts, useEffect runs
+                log('1. Component mounting, useEffect triggered');
+                
+                // Step 2: fetchFeatures called
+                log('2. fetchFeatures() called');
+                log(`   - Token from localStorage: ${token ? 'Found' : 'Not found'}`);
+                log(`   - Token preview: ${token ? token.substring(0, 50) + '...' : 'No token'}`);
+                
+                if (!token) {
+                    log('   - No access token found in localStorage', 'error');
+                    return;
+                }
+                
+                // Step 3: API call
+                log('3. Making API call to /api/rbac/features');
+                const response = await fetch('/api/rbac/features', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+                
+                log(`   - API Response status: ${response.status}`);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    log(`   - API Error: ${errorText}`, 'error');
+                    return;
+                }
+                
+                const result = await response.json();
+                log(`   - Raw API response: ${JSON.stringify(result)}`);
+                log(`   - Features count: ${result.data ? result.data.length : 0}`);
+                
+                if (!result.success) {
+                    log(`   - API returned unsuccessful: ${result.message}`, 'error');
+                    return;
+                }
+                
+                // Step 4: Process features
+                const features = Array.isArray(result.data) ? result.data : [];
+                log(`4. Processed features: ${features.length}`);
+                
+                // Step 5: State update simulation
+                log('5. Simulating state update: setFeatures(featuresData)');
+                log(`   - Features state would be updated with ${features.length} items`);
+                
+                // Step 6: Filter simulation
+                log('6. Simulating filteredFeatures calculation');
+                const searchTerm = ''; // No search term initially
+                log(`   - Total features: ${features.length}, Search term: '${searchTerm}'`);
+                
+                let filteredFeatures;
+                if (!searchTerm.trim()) {
+                    log('   - No search term, returning all features');
+                    filteredFeatures = features;
+                } else {
+                    const searchLower = searchTerm.toLowerCase().trim();
+                    filteredFeatures = features.filter((feature) =>
+                        feature.name.toLowerCase().includes(searchLower) ||
+                        feature.description.toLowerCase().includes(searchLower) ||
+                        (feature.category && feature.category.toLowerCase().includes(searchLower))
+                    );
+                }
+                
+                log(`   - Filtered features: ${filteredFeatures.length}`);
+                
+                // Step 7: Render decision
+                log('7. Render decision');
+                if (filteredFeatures.length === 0) {
+                    log('   - Would render: "No features found"', 'warning');
+                    diagnosticResults.wouldShowNoFeatures = true;
+                } else {
+                    log(`   - Would render: ${filteredFeatures.length} features in table`, 'success');
+                    diagnosticResults.wouldShowNoFeatures = false;
+                }
+                
+                diagnosticResults.simulationFeatures = features;
+                diagnosticResults.simulationFiltered = filteredFeatures;
+                
+            } catch (error) {
+                log(`UI simulation error: ${error.message}`, 'error');
+                diagnosticResults.simulationError = error.message;
+            }
+        }
+        
+        function analyzeResults() {
+            log('=== Analysis and Recommendations ===');
+            
+            if (!diagnosticResults.hasToken) {
+                log('🔍 ISSUE: No token in localStorage', 'error');
+                log('💡 SOLUTION: User needs to login first');
+                return;
+            }
+            
+            if (diagnosticResults.tokenExpired) {
+                log('🔍 ISSUE: Token is expired', 'error');
+                log('💡 SOLUTION: User needs to login again or refresh token');
+                return;
+            }
+            
+            if (!diagnosticResults.loginSuccess) {
+                log('🔍 ISSUE: Login failed', 'error');
+                log('💡 SOLUTION: Check login credentials or API');
+                return;
+            }
+            
+            if (diagnosticResults.apiError) {
+                log('🔍 ISSUE: API call failed', 'error');
+                log(`💡 SOLUTION: Check API endpoint and authentication: ${diagnosticResults.apiError}`);
+                return;
+            }
+            
+            if (diagnosticResults.featuresCount === 0) {
+                log('🔍 ISSUE: API returns empty features array', 'warning');
+                log('💡 SOLUTION: Check if features exist in database');
+                return;
+            }
+            
+            if (diagnosticResults.wouldShowNoFeatures && diagnosticResults.featuresCount > 0) {
+                log('🔍 ISSUE: Features exist but UI would show "No features found"', 'error');
+                log('💡 SOLUTION: Check component state management and filtering logic');
+                log('🔧 DEBUG: Check browser console for component logs');
+                return;
+            }
+            
+            if (diagnosticResults.featuresCount > 0 && !diagnosticResults.wouldShowNoFeatures) {
+                log('✅ ANALYSIS: Everything looks correct!', 'success');
+                log('💡 RECOMMENDATION: Check browser console for actual component behavior');
+                return;
+            }
+            
+            log('🔍 ISSUE: Unclear issue detected', 'warning');
+            log('💡 SOLUTION: Manual debugging required');
+        }
+        
+        // Auto-run basic check on page load
+        window.onload = function() {
+            log('🚀 Debug Auth Flow loaded', 'info');
+            log('Click "Run Full Diagnostic" to start comprehensive testing', 'info');
+            checkLocalStorage();
+        };
+    </script>
+</body>
+</html>

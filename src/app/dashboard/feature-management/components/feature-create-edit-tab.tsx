@@ -78,10 +78,14 @@ export function FeatureCreateEditTab({
    */
   const fetchRoles = async (): Promise<Role[]> => {
     try {
+      // Ambil token dari localStorage
+      const token = localStorage.getItem('accessToken');
+      
       const response = await fetch('/api/rbac/roles', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
       });
       
@@ -96,7 +100,9 @@ export function FeatureCreateEditTab({
         throw new Error(result.message || 'API returned unsuccessful response');
       }
       
-      return Array.isArray(result.data) ? result.data.map((role: any) => ({
+      // Perbaiki akses data roles sesuai format response API
+      const roles = result.data?.roles || result.data || [];
+      return Array.isArray(roles) ? roles.map((role: any) => ({
         id: role.id.toString(),
         name: role.name,
         description: role.description || `Role ${role.name}`,
@@ -123,10 +129,14 @@ export function FeatureCreateEditTab({
    */
   const fetchFeatureDetail = async (id: number): Promise<any> => {
     try {
+      // Ambil token dari localStorage
+      const token = localStorage.getItem('accessToken');
+      
       const response = await fetch(`/api/rbac/features/${id}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
       });
       
@@ -227,14 +237,15 @@ export function FeatureCreateEditTab({
                 name: existingData.name || '',
                 description: existingData.description || '',
                 isActive: existingData.is_active ?? true, // Handle snake_case dari backend
-                roles: Array.isArray(existingData.features) ? existingData.features.map((feature: any) => ({
-                  id: feature.role_id?.toString() || feature.roleId?.toString() || '',
-                  name: feature.role_name || feature.roleName || `Role ${feature.role_id || feature.roleId}`,
-                  description: feature.role_description || feature.roleDescription || '',
-                  canCreate: feature.can_create ?? feature.canCreate ?? true,
-                  canRead: feature.can_read ?? feature.canRead ?? true,
-                  canUpdate: feature.can_update ?? feature.canUpdate ?? true,
-                  canDelete: feature.can_delete ?? feature.canDelete ?? false,
+                // Perbaiki akses data roles sesuai format response API
+                roles: Array.isArray(existingData.roles) ? existingData.roles.map((roleData: any) => ({
+                   id: roleData.role_id?.toString() || roleData.roleId?.toString() || roleData.id?.toString() || '',
+                   name: roleData.role_name || roleData.roleName || roleData.name || `Role ${roleData.role_id || roleData.roleId || roleData.id}`,
+                   description: roleData.role_description || roleData.roleDescription || roleData.description || '',
+                   canCreate: roleData.can_create ?? roleData.canCreate ?? true,
+                   canRead: roleData.can_read ?? roleData.canRead ?? true,
+                   canUpdate: roleData.can_update ?? roleData.canUpdate ?? true,
+                   canDelete: roleData.can_delete ?? roleData.canDelete ?? false,
                 })) : []
               });
             } else if (isMounted && !existingData) {
@@ -404,10 +415,14 @@ export function FeatureCreateEditTab({
         : '/api/rbac/features';
       const method = isEditMode ? 'PUT' : 'POST';
       
+      // Ambil token dari localStorage untuk authorization
+      const token = localStorage.getItem('accessToken');
+      
       response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
         body: JSON.stringify(featureData),
       });

@@ -84,7 +84,14 @@ export function RouteDetailTab({
       setIsLoading(true);
       try {
         // Ambil detail route dari API
-        const response = await fetch(`/api/rbac/route-features/${routeId}`);
+        const token = localStorage.getItem('accessToken');
+        const response = await fetch(`/api/rbac/route-features/${routeId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` }),
+          },
+        });
         const data = await response.json();
         
         if (data.success && data.data) {

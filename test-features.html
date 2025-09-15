@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Features API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .output { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        button { margin: 5px; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Test Features API</h1>
+    <button onclick="loginAndSetToken()">Login & Set Token</button>
+    <button onclick="testFeaturesAPI()">Test Features API</button>
+    <button onclick="checkLocalStorage()">Check localStorage</button>
+    <div id="output" class="output">Ready to test...</div>
+
+    <script>
+        async function loginAndSetToken() {
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@company.com',
+                        password: 'admin123'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success && result.data.accessToken) {
+                    localStorage.setItem('accessToken', result.data.accessToken);
+                    document.getElementById('output').innerHTML = 
+                        'Login successful! Token saved to localStorage.<br>' +
+                        'Token: ' + result.data.accessToken.substring(0, 50) + '...';
+                } else {
+                    document.getElementById('output').innerHTML = 'Login failed: ' + JSON.stringify(result);
+                }
+            } catch (error) {
+                document.getElementById('output').innerHTML = 'Login error: ' + error.message;
+            }
+        }
+        
+        async function testFeaturesAPI() {
+            try {
+                const token = localStorage.getItem('accessToken');
+                
+                if (!token) {
+                    document.getElementById('output').innerHTML = 'No token found in localStorage. Please login first.';
+                    return;
+                }
+                
+                const response = await fetch('/api/rbac/features', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const result = await response.json();
+                
+                document.getElementById('output').innerHTML = 
+                    'Features API Response:<br>' +
+                    'Status: ' + response.status + '<br>' +
+                    'Success: ' + result.success + '<br>' +
+                    'Data count: ' + (result.data ? result.data.length : 0) + '<br>' +
+                    'Raw response: <pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                    
+            } catch (error) {
+                document.getElementById('output').innerHTML = 'Features API error: ' + error.message;
+            }
+        }
+        
+        function checkLocalStorage() {
+            const token = localStorage.getItem('accessToken');
+            document.getElementById('output').innerHTML = 
+                'localStorage check:<br>' +
+                'Token exists: ' + (token ? 'Yes' : 'No') + '<br>' +
+                (token ? 'Token preview: ' + token.substring(0, 50) + '...' : 'No token found');
+        }
+    </script>
+</body>
+</html>

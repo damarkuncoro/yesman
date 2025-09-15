@@ -10,11 +10,13 @@ import type {
   TokenGenerationPayload, 
   JWTPayload, 
   TokenPair,
+  TokenData,
   ITokenService 
 } from './types';
 import { TokenGenerator, createTokenGenerator } from './tokenGenerator';
 import { TokenValidator, createTokenValidator } from './tokenValidator';
 import { TokenUtils, createTokenUtils } from './tokenUtils';
+import { TokenStorage, createTokenStorage } from './tokenStorage';
 import { getJWTConfig, LOG_PREFIXES, SUCCESS_MESSAGES } from './constants';
 import { AuthenticationError } from '../../../errors/errorHandler';
 
@@ -26,6 +28,7 @@ export class TokenService implements ITokenService {
   private readonly tokenGenerator: TokenGenerator;
   private readonly tokenValidator: TokenValidator;
   private readonly tokenUtils: TokenUtils;
+  private readonly tokenStorage: TokenStorage;
   private readonly userRepository: UserRepository;
   private readonly config: JWTConfig;
 
@@ -37,6 +40,7 @@ export class TokenService implements ITokenService {
     this.tokenGenerator = createTokenGenerator(this.config);
     this.tokenValidator = createTokenValidator(userRepository, this.config);
     this.tokenUtils = createTokenUtils();
+    this.tokenStorage = createTokenStorage();
   }
 
   /**
@@ -234,15 +238,92 @@ export class TokenService implements ITokenService {
   }
 
   /**
-   * Get sub-services untuk advanced usage
-   * @returns Object berisi semua sub-services
+   * Get sub-services untuk testing atau advanced usage
+   * @returns Object dengan semua sub-services
    */
   getSubServices() {
     return {
-      generator: this.tokenGenerator,
-      validator: this.tokenValidator,
-      utils: this.tokenUtils
+      tokenGenerator: this.tokenGenerator,
+      tokenValidator: this.tokenValidator,
+      tokenUtils: this.tokenUtils,
+      tokenStorage: this.tokenStorage
     };
+  }
+
+  // ===== STORAGE METHODS (Kompatibilitas dengan tokenService.ts lama) =====
+
+  /**
+   * Menyimpan token data ke localStorage
+   * @param tokenData - Data token yang akan disimpan
+   */
+  setTokens(tokenData: TokenData): void {
+    this.tokenStorage.setTokens(tokenData);
+  }
+
+  /**
+   * Mengambil access token dari localStorage
+   * @returns Access token atau null jika tidak ada
+   */
+  getAccessToken(): string | null {
+    return this.tokenStorage.getAccessToken();
+  }
+
+  /**
+   * Mengambil refresh token dari localStorage
+   * @returns Refresh token atau null jika tidak ada
+   */
+  getRefreshToken(): string | null {
+    return this.tokenStorage.getRefreshToken();
+  }
+
+  /**
+   * Mengambil waktu expired token dari localStorage
+   * @returns Timestamp expired atau null jika tidak ada
+   */
+  getTokenExpiresAt(): number | null {
+    return this.tokenStorage.getTokenExpiresAt();
+  }
+
+  /**
+   * Mengambil semua token data dari localStorage
+   * @returns Object dengan semua token data
+   */
+  getAllTokens(): TokenData | null {
+    return this.tokenStorage.getAllTokens();
+  }
+
+  /**
+   * Menghapus semua token dari localStorage
+   */
+  clearTokens(): void {
+    this.tokenStorage.clearTokens();
+  }
+
+  /**
+   * Mengecek apakah access token sudah expired (dari localStorage)
+   * @returns true jika token expired, false jika masih valid
+   */
+  isStoredTokenExpired(): boolean {
+    return this.tokenStorage.isTokenExpired();
+  }
+
+  /**
+   * Mengecek apakah token akan expired dalam waktu tertentu (dari localStorage)
+   * @param minutes - Waktu dalam menit untuk mengecek
+   * @returns true jika token akan expired dalam waktu yang ditentukan
+   */
+  willStoredTokenExpireIn(minutes: number): boolean {
+    return this.tokenStorage.willTokenExpireIn(minutes);
+  }
+
+  /**
+   * Decode JWT token untuk mendapatkan payload (tanpa verifikasi)
+   * Alias untuk decodeToken untuk kompatibilitas
+   * @param token - JWT token
+   * @returns Decoded payload atau null jika gagal
+   */
+  decodeJWTToken(token: string): JWTPayload | null {
+    return this.decodeToken(token);
   }
 }
 
@@ -266,9 +347,11 @@ export {
   TokenGenerator,
   TokenValidator,
   TokenUtils,
+  TokenStorage,
   createTokenGenerator,
   createTokenValidator,
-  createTokenUtils
+  createTokenUtils,
+  createTokenStorage
 };
 
 /**
@@ -280,11 +363,14 @@ export type {
   TokenGenerationPayload,
   JWTPayload,
   TokenPair,
+  TokenData,
   ITokenService,
   ITokenGenerator,
   ITokenValidator,
   ITokenUtils
 } from './types';
+
+export type { ITokenStorage } from './tokenStorage';
 
 /**
  * Export constants

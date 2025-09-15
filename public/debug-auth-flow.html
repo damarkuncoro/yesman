@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Auth Flow</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .log { max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>Debug Auth Flow - RBAC Features Issue</h1>
+    
+    <div class="section info">
+        <h3>Test Controls</h3>
+        <button onclick="checkLocalStorage()">1. Check localStorage</button>
+        <button onclick="testLogin()">2. Test Login</button>
+        <button onclick="testFeaturesAPI()">3. Test Features API</button>
+        <button onclick="testFullFlow()">4. Test Full Flow</button>
+        <button onclick="clearAll()">Clear All</button>
+    </div>
+
+    <div class="section" id="results">
+        <h3>Results</h3>
+        <div id="output" class="log"></div>
+    </div>
+
+    <script>
+        let logOutput = document.getElementById('output');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            logOutput.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+        
+        function clearAll() {
+            localStorage.clear();
+            logOutput.innerHTML = '';
+            log('All data cleared', 'info');
+        }
+        
+        function checkLocalStorage() {
+            log('=== Checking localStorage ===');
+            
+            const token = localStorage.getItem('accessToken');
+            const user = localStorage.getItem('user');
+            
+            if (token) {
+                log(`✅ Token found: ${token.substring(0, 50)}...`, 'success');
+                
+                // Decode JWT
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    const now = Math.floor(Date.now() / 1000);
+                    const isExpired = payload.exp < now;
+                    
+                    log(`Token expires at: ${new Date(payload.exp * 1000).toLocaleString()}`);
+                    log(`Current time: ${new Date().toLocaleString()}`);
+                    log(`Token expired: ${isExpired}`, isExpired ? 'error' : 'success');
+                    log(`User ID: ${payload.userId}`);
+                    log(`Email: ${payload.email}`);
+                } catch (e) {
+                    log(`❌ Error decoding token: ${e.message}`, 'error');
+                }
+            } else {
+                log('❌ No token found in localStorage', 'error');
+            }
+            
+            if (user) {
+                log(`✅ User data found: ${user}`, 'success');
+                try {
+                    const userData = JSON.parse(user);
+                    log(`User: ${userData.name} (${userData.email})`);
+                } catch (e) {
+                    log(`❌ Error parsing user data: ${e.message}`, 'error');
+                }
+            } else {
+                log('❌ No user data found in localStorage', 'error');
+            }
+        }
+        
+        async function testLogin() {
+            log('=== Testing Login ===');
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@example.com',
+                        password: 'admin123'
+                    })
+                });
+                
+                const data = await response.json();
+                log(`Login response status: ${response.status}`);
+                log(`Login response: ${JSON.stringify(data, null, 2)}`);
+                
+                if (data.success && data.data.accessToken) {
+                    // Simulate AuthContext behavior
+                    localStorage.setItem('accessToken', data.data.accessToken);
+                    localStorage.setItem('user', JSON.stringify(data.data.user));
+                    log('✅ Token and user data saved to localStorage', 'success');
+                } else {
+                    log('❌ Login failed or no token received', 'error');
+                }
+            } catch (error) {
+                log(`❌ Login error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testFeaturesAPI() {
+            log('=== Testing Features API ===');
+            
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                log('❌ No token found. Please login first.', 'error');
+                return;
+            }
+            
+            try {
+                log(`Using token: ${token.substring(0, 50)}...`);
+                
+                const response = await fetch('/api/rbac/features', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                log(`Features API response status: ${response.status}`);
+                
+                const data = await response.json();
+                log(`Features API response: ${JSON.stringify(data, null, 2)}`);
+                
+                if (response.ok && data.success) {
+                    log(`✅ Features API success. Found ${data.data?.length || 0} features`, 'success');
+                    if (data.data && data.data.length > 0) {
+                        log(`First feature: ${JSON.stringify(data.data[0], null, 2)}`);
+                    }
+                } else {
+                    log(`❌ Features API failed: ${data.message || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Features API error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testFullFlow() {
+            log('=== Testing Full Flow ===');
+            clearAll();
+            
+            // Step 1: Login
+            await testLogin();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Step 2: Check localStorage
+            checkLocalStorage();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Step 3: Test Features API
+            await testFeaturesAPI();
+            
+            log('=== Full Flow Complete ===', 'success');
+        }
+        
+        // Auto-run on page load
+        window.onload = function() {
+            log('Debug Auth Flow loaded. Click buttons to test.', 'info');
+            checkLocalStorage();
+        };
+    </script>
+</body>
+</html>

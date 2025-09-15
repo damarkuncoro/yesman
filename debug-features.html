@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Features Issue</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .step { margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { margin: 5px; padding: 10px 15px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Debug "No features found" Issue</h1>
+    
+    <button onclick="runFullTest()">Run Full Test</button>
+    <button onclick="clearResults()">Clear Results</button>
+    
+    <div id="results"></div>
+
+    <script>
+        let stepCounter = 0;
+        
+        function addStep(title, content, type = 'info') {
+            stepCounter++;
+            const div = document.createElement('div');
+            div.className = `step ${type}`;
+            div.innerHTML = `<h3>Step ${stepCounter}: ${title}</h3><div>${content}</div>`;
+            document.getElementById('results').appendChild(div);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            stepCounter = 0;
+        }
+        
+        async function runFullTest() {
+            clearResults();
+            
+            // Step 1: Check localStorage
+            let token = localStorage.getItem('accessToken');
+            if (token) {
+                addStep('Check localStorage', `Token found: ${token.substring(0, 50)}...`, 'success');
+            } else {
+                addStep('Check localStorage', 'No token found in localStorage', 'error');
+            }
+            
+            // Step 2: Login if no token
+            if (!token) {
+                addStep('Login Process', 'Attempting to login...', 'info');
+                try {
+                    const loginResponse = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            email: 'admin@company.com',
+                            password: 'admin123'
+                        })
+                    });
+                    
+                    const loginResult = await loginResponse.json();
+                    
+                    if (loginResult.success && loginResult.data.accessToken) {
+                        token = loginResult.data.accessToken;
+                        localStorage.setItem('accessToken', token);
+                        addStep('Login Process', `Login successful! Token: ${token.substring(0, 50)}...`, 'success');
+                    } else {
+                        addStep('Login Process', `Login failed: ${JSON.stringify(loginResult)}`, 'error');
+                        return;
+                    }
+                } catch (error) {
+                    addStep('Login Process', `Login error: ${error.message}`, 'error');
+                    return;
+                }
+            }
+            
+            // Step 3: Test Features API
+            addStep('Test Features API', 'Calling /api/rbac/features...', 'info');
+            try {
+                const featuresResponse = await fetch('/api/rbac/features', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const featuresResult = await featuresResponse.json();
+                
+                if (featuresResponse.ok && featuresResult.success) {
+                    const featuresCount = featuresResult.data ? featuresResult.data.length : 0;
+                    addStep('Test Features API', 
+                        `API Success! Found ${featuresCount} features<pre>${JSON.stringify(featuresResult, null, 2)}</pre>`, 
+                        'success');
+                } else {
+                    addStep('Test Features API', 
+                        `API Failed: Status ${featuresResponse.status}<pre>${JSON.stringify(featuresResult, null, 2)}</pre>`, 
+                        'error');
+                }
+            } catch (error) {
+                addStep('Test Features API', `API Error: ${error.message}`, 'error');
+            }
+            
+            // Step 4: Check if issue is in React component
+            addStep('Component Analysis', 
+                'If API works but UI shows "No features found", the issue is likely:<br>' +
+                '1. Token not being retrieved in React component<br>' +
+                '2. Component state not updating properly<br>' +
+                '3. Filtering logic removing all items<br>' +
+                '4. Rendering condition issue<br><br>' +
+                'Check browser console for debug logs from the React component.', 
+                'info');
+                
+            // Step 5: Redirect to feature management
+            addStep('Next Steps', 
+                '<a href="/dashboard/feature-management" target="_blank">Open Feature Management</a> and check browser console for debug logs.', 
+                'info');
+        }
+    </script>
+</body>
+</html>

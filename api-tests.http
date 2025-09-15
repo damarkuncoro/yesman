@@ -3,7 +3,7 @@
 
 # Variables
 @baseUrl = http://localhost:3000
-@token = your_jwt_token_here
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIwLCJlbWFpbCI6ImFkbWluQGNvbXBhbnkuY29tIiwiaWF0IjoxNzU3OTI0NTEzLCJleHAiOjE3NTc5MjU0MTN9.sdUua3NKMteTdDoN9DAE6W_77b0XUxYCF3XSYEVwekc
 @userId = 1
 @roleId = 1
 @featureId = 1
@@ -39,7 +39,7 @@ Content-Type: application/json
 
 {
   "email": "register1@example.com",
-  "password": "password123",
+  "password": "Password123",
   "name": "New User",
   "department": "IT",
   "region": "Jakarta"
@@ -49,6 +49,12 @@ Content-Type: application/json
 POST {{baseUrl}}/api/v1/auth/validate
 Authorization: Bearer {{token}}
 Content-Type: application/json
+
+{
+"route":"users",
+"action":"read",
+"userId":1
+}
 
 ### Refresh Token
 POST {{baseUrl}}/api/v1/auth/refresh
@@ -135,37 +141,37 @@ Authorization: Bearer {{token}}
 ###############################################
 
 ### Get All Features
-GET {{baseUrl}}/api/v1/rbac/features
+GET {{baseUrl}}/api/rbac/features
 Authorization: Bearer {{token}}
 
 ### Create New Feature
-POST {{baseUrl}}/api/v1/rbac/features
+POST {{baseUrl}}/api/rbac/features
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
   "name": "test_feature",
   "description": "Feature untuk testing",
-  "is_active": true
+  "module": "testing"
 }
 
 ### Get Feature by ID
-GET {{baseUrl}}/api/v1/rbac/features/{{featureId}}
+GET {{baseUrl}}/api/rbac/features/{{featureId}}
 Authorization: Bearer {{token}}
 
 ### Update Feature
-PUT {{baseUrl}}/api/v1/rbac/features/{{featureId}}
+PUT {{baseUrl}}/api/rbac/features/{{featureId}}
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
   "name": "updated_test_feature",
   "description": "Feature yang sudah diupdate",
-  "is_active": true
+  "module": "testing"
 }
 
 ### Delete Feature
-DELETE {{baseUrl}}/api/v1/rbac/features/{{featureId}}
+DELETE {{baseUrl}}/api/rbac/features/{{featureId}}
 Authorization: Bearer {{token}}
 
 ###############################################
