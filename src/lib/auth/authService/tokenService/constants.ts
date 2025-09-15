@@ -71,9 +71,11 @@ export function getJWTConfig(): JWTConfig {
   const accessTokenSecret = process.env[ENV_KEYS.JWT_SECRET] || JWT_DEFAULTS.FALLBACK_SECRET;
   const refreshTokenSecret = process.env[ENV_KEYS.JWT_REFRESH_SECRET] || JWT_DEFAULTS.FALLBACK_REFRESH_SECRET;
   
-  // Warn if using fallback secrets
-  if (!process.env[ENV_KEYS.JWT_SECRET] || !process.env[ENV_KEYS.JWT_REFRESH_SECRET]) {
-    console.warn(`${LOG_PREFIXES.WARNING} ${ERROR_MESSAGES.JWT_SECRETS_NOT_CONFIGURED}`);
+  // Warn if using fallback secrets (only on server-side)
+  if (typeof window === 'undefined') {
+    if (!process.env[ENV_KEYS.JWT_SECRET] || !process.env[ENV_KEYS.JWT_REFRESH_SECRET]) {
+      console.warn(`${LOG_PREFIXES.WARNING} ${ERROR_MESSAGES.JWT_SECRETS_NOT_CONFIGURED}`);
+    }
   }
   
   return {

@@ -1,113 +1,83 @@
-'use client';
+"use client"
 
-import { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/shadcn/ui/tabs';
-import { Card, CardContent, CardHeader } from '@/components/shadcn/ui/card';
-import PolicyListTab from './policy-list-tab';
-import PolicyCreateEditTab from './policy-create-edit-tab';
-import PolicyDetailTab from './policy-detail-tab';
+import { useState } from "react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shadcn/ui/tabs"
+import PolicyListTab from "./policy-list-tab"
+import PolicyDetailTab from "./policy-detail-tab"
+import PolicyCreateEditTab from "./policy-create-edit-tab"
 
 /**
- * Komponen utama untuk mengelola tab-tab dalam Policy Management
- * Menggunakan state untuk mengontrol tab aktif dan data yang dipilih
+ * Komponen tabs untuk Policy Management
+ * Mengelola navigasi antar tab: Policy List, Policy Detail, Policy Create/Edit
  */
-export default function PolicyManagementTabs() {
-  const [activeTab, setActiveTab] = useState('list');
-  const [selectedPolicyId, setSelectedPolicyId] = useState<string | null>(null);
-  const [isEditMode, setIsEditMode] = useState(false);
+export function PolicyManagementTabs() {
+  const [activeTab, setActiveTab] = useState("policy-list")
+  const [selectedPolicyId, setSelectedPolicyId] = useState<string | null>(null)
+  const [editMode, setEditMode] = useState<'create' | 'edit'>('create')
 
   /**
-   * Handler untuk membuka tab create policy
+   * Handle ketika policy dipilih dari Policy List
+   * Akan switch ke Policy Detail tab
    */
-  const handleCreatePolicy = () => {
-    setSelectedPolicyId(null);
-    setIsEditMode(false);
-    setActiveTab('create-edit');
-  };
+  const handlePolicySelect = (policyId: string) => {
+    setSelectedPolicyId(policyId)
+    setActiveTab("policy-detail")
+  }
 
   /**
-   * Handler untuk membuka tab edit policy
-   * @param policyId - ID policy yang akan diedit
+   * Handle ketika ingin edit policy
+   * Akan switch ke Policy Create/Edit tab dalam mode edit
    */
-  const handleEditPolicy = (policyId: string) => {
-    setSelectedPolicyId(policyId);
-    setIsEditMode(true);
-    setActiveTab('create-edit');
-  };
+  const handlePolicyEdit = (policyId: string) => {
+    setSelectedPolicyId(policyId)
+    setEditMode('edit')
+    setActiveTab("policy-create-edit")
+  }
 
   /**
-   * Handler untuk membuka tab detail policy
-   * @param policyId - ID policy yang akan dilihat detailnya
+   * Handle ketika ingin create policy baru
+   * Akan switch ke Policy Create/Edit tab dalam mode create
    */
-  const handleViewDetail = (policyId: string) => {
-    setSelectedPolicyId(policyId);
-    setActiveTab('detail');
-  };
-
-  /**
-   * Handler untuk kembali ke tab list setelah operasi berhasil
-   */
-  const handleSuccess = () => {
-    setActiveTab('list');
-    setSelectedPolicyId(null);
-    setIsEditMode(false);
-  };
-
-  /**
-   * Handler untuk cancel operasi dan kembali ke tab list
-   */
-  const handleCancel = () => {
-    setActiveTab('list');
-    setSelectedPolicyId(null);
-    setIsEditMode(false);
-  };
+  const handlePolicyCreate = () => {
+    setSelectedPolicyId(null)
+    setEditMode('create')
+    setActiveTab("policy-create-edit")
+  }
 
   return (
-    <div className="container mx-auto p-6">
-      <Card>
-        <CardHeader>
-          <h2 className="text-2xl font-bold">Policy Management (ABAC)</h2>
-          <p className="text-gray-600 mt-2">
-            Kelola aturan Attribute-Based Access Control (ABAC) untuk mengontrol akses berdasarkan atribut pengguna
-          </p>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="list">Policy List</TabsTrigger>
-              <TabsTrigger value="create-edit">
-                {isEditMode ? 'Edit Policy' : 'Create Policy'}
-              </TabsTrigger>
-              <TabsTrigger value="detail">Policy Detail</TabsTrigger>
-            </TabsList>
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <TabsList className="grid w-full grid-cols-3">
+        <TabsTrigger value="policy-list">Policy List</TabsTrigger>
+        <TabsTrigger value="policy-detail">Policy Detail</TabsTrigger>
+        <TabsTrigger value="policy-create-edit">
+          {editMode === 'create' ? 'Create Policy' : 'Edit Policy'}
+        </TabsTrigger>
+      </TabsList>
 
-            <TabsContent value="list" className="mt-6">
-              <PolicyListTab
-                onCreatePolicy={handleCreatePolicy}
-                onEditPolicy={handleEditPolicy}
-                onViewDetail={handleViewDetail}
-              />
-            </TabsContent>
+      <TabsContent value="policy-list" className="mt-6">
+         <PolicyListTab 
+           onCreatePolicy={handlePolicyCreate}
+           onEditPolicy={handlePolicyEdit}
+           onViewDetail={handlePolicySelect}
+         />
+       </TabsContent>
 
-            <TabsContent value="create-edit" className="mt-6">
-              <PolicyCreateEditTab
-                policyId={selectedPolicyId}
-                isEditMode={isEditMode}
-                onSuccess={handleSuccess}
-                onCancel={handleCancel}
-              />
-            </TabsContent>
+       <TabsContent value="policy-detail" className="mt-6">
+         <PolicyDetailTab 
+           policyId={selectedPolicyId}
+           onBack={() => setActiveTab("policy-list")}
+           onEdit={handlePolicyEdit}
+         />
+       </TabsContent>
 
-            <TabsContent value="detail" className="mt-6">
-              <PolicyDetailTab
-                policyId={selectedPolicyId}
-                onBack={handleCancel}
-                onEdit={handleEditPolicy}
-              />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-    </div>
-  );
+       <TabsContent value="policy-create-edit" className="mt-6">
+         <PolicyCreateEditTab 
+           policyId={selectedPolicyId}
+           isEditMode={editMode === 'edit'}
+           onSuccess={() => setActiveTab("policy-list")}
+           onCancel={() => setActiveTab("policy-list")}
+         />
+       </TabsContent>
+    </Tabs>
+  )
 }

@@ -199,8 +199,9 @@ export class UserAuthenticationCore {
       let session: any = null;
       
       if (sessions.length > 0) {
-        // Refresh session yang paling baru
-        session = sessions.sort((a: any, b: any) => b.lastAccessedAt.getTime() - a.lastAccessedAt.getTime())[0];
+        // Refresh session yang paling baru berdasarkan createdAt
+        // Note: lastAccessedAt field tidak ada di Session schema
+        session = sessions.sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime())[0];
         session = await this.sessionService.refreshSession(session.id);
       }
 

@@ -27,6 +27,8 @@ export class DefaultRouteMatcher implements RouteMatcher {
   private readonly publicApiRoutes: string[] = [
     '/api/health',
     '/api/version',
+    // Setup endpoints (untuk initial setup saat users == 0)
+    '/api/setup/initial',
     // Legacy auth endpoints (non-versioned)
     '/api/auth/login',
     '/api/auth/register',

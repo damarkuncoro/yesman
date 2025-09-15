@@ -191,6 +191,36 @@ export function UserCreateEditTab({ userId, mode, onSuccess }: UserCreateEditTab
   }
 
   /**
+   * Update user roles via API
+   */
+  const updateUserRoles = async (userId: string, roleIds: string[]) => {
+    if (!accessToken) return
+
+    try {
+      const response = await fetch(`/api/users/${userId}/roles`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ roleIds: roleIds.map(id => parseInt(id)) })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Gagal mengupdate roles user')
+      }
+
+      toast.success('User roles berhasil diupdate')
+    } catch (error) {
+      console.error('Error updating user roles:', error)
+      toast.error(error instanceof Error ? error.message : 'Gagal mengupdate roles user')
+      throw error
+    }
+  }
+
+  /**
    * Validasi form data
    */
   const validateForm = (): boolean => {
@@ -206,15 +236,18 @@ export function UserCreateEditTab({ userId, mode, onSuccess }: UserCreateEditTab
       newErrors.name = 'Name is required'
     }
 
+    // Password validation untuk create mode
     if (mode === 'create' && !formData.password) {
       newErrors.password = 'Password is required'
     }
 
+    // Password validation untuk edit mode - optional tapi jika diisi harus valid
     if (formData.password && formData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters'
     }
 
-    if (formData.password !== formData.confirmPassword) {
+    // Confirm password validation - hanya jika password diisi
+    if (formData.password && formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match'
     }
 
@@ -253,6 +286,21 @@ export function UserCreateEditTab({ userId, mode, onSuccess }: UserCreateEditTab
     
     try {
       if (mode === 'edit' && userId) {
+        // Prepare update data
+        const updateData: any = {
+          name: formData.name,
+          email: formData.email,
+          department: formData.department,
+          region: formData.region,
+          level: formData.level,
+          active: formData.status === 'active'
+        }
+
+        // Include password only if provided
+        if (formData.password && formData.password.trim() !== '') {
+          updateData.password = formData.password
+        }
+
         // Update existing user
         const response = await fetch(`/api/users/${userId}`, {
           method: 'PUT',
@@ -260,14 +308,7 @@ export function UserCreateEditTab({ userId, mode, onSuccess }: UserCreateEditTab
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            name: formData.name,
-            email: formData.email,
-            department: formData.department,
-            region: formData.region,
-            level: formData.level,
-            active: formData.status === 'active'
-          })
+          body: JSON.stringify(updateData)
         })
 
         const result = await response.json()
@@ -276,10 +317,15 @@ export function UserCreateEditTab({ userId, mode, onSuccess }: UserCreateEditTab
           throw new Error(result.message || 'Gagal mengupdate user')
         }
 
+        // Update user roles if any roles are selected
+        if (formData.roles.length > 0) {
+          await updateUserRoles(userId, formData.roles)
+        }
+
         toast.success(`User ${formData.name} berhasil diupdate`)
       } else {
         // Create new user menggunakan register endpoint
-        const response = await fetch('/api/auth/register', {
+        const response = await fetch('/api/v1/auth/register', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -300,6 +346,11 @@ export function UserCreateEditTab({ userId, mode, onSuccess }: UserCreateEditTab
           throw new Error(result.message || 'Gagal membuat user')
         }
 
+        // Assign roles to newly created user if any roles are selected
+        if (result.success && result.data?.user?.id && formData.roles.length > 0) {
+          await updateUserRoles(result.data.user.id.toString(), formData.roles)
+        }
+
         toast.success(`User ${formData.name} berhasil dibuat`)
       }
       
@@ -316,6 +367,9 @@ export function UserCreateEditTab({ userId, mode, onSuccess }: UserCreateEditTab
    * Get selected role names untuk display
    */
   const getSelectedRoleNames = () => {
+    if (!Array.isArray(availableRoles)) {
+      return []
+    }
     return availableRoles
       .filter(role => formData.roles.includes(role.id.toString()))
       .map(role => role.name)

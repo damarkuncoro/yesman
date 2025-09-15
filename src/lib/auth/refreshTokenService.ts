@@ -36,8 +36,11 @@ export class RefreshTokenService {
    * @returns Promise dengan access token baru
    */
   static async refreshToken(): Promise<string> {
+    console.log('🔄 RefreshTokenService.refreshToken() called');
+    
     // Jika sedang dalam proses refresh, tambahkan ke queue
     if (this.isRefreshing) {
+      console.log('⏳ Refresh already in progress, adding to queue');
       return new Promise((resolve, reject) => {
         this.failedQueue.push({ resolve, reject });
       });
@@ -45,26 +48,34 @@ export class RefreshTokenService {
 
     // Jika sudah ada promise refresh yang berjalan, return promise tersebut
     if (this.refreshPromise) {
+      console.log('⏳ Returning existing refresh promise');
       return this.refreshPromise;
     }
 
     const refreshToken = TokenService.getRefreshToken();
+    console.log('🔍 Checking refresh token availability:', refreshToken ? 'Found' : 'Not found');
+    
     if (!refreshToken) {
+      console.error('❌ No refresh token available in localStorage');
       throw new Error('No refresh token available');
     }
 
+    console.log('🚀 Starting refresh token process');
     this.isRefreshing = true;
     
     this.refreshPromise = this.performRefresh(refreshToken)
       .then((newAccessToken) => {
+        console.log('✅ Refresh token process completed successfully');
         this.processQueue(null, newAccessToken);
         return newAccessToken;
       })
       .catch((error) => {
+        console.error('❌ Refresh token process failed:', error);
         this.processQueue(error);
         throw error;
       })
       .finally(() => {
+        console.log('🏁 Refresh token process finished, resetting state');
         this.isRefreshing = false;
         this.refreshPromise = null;
       });
@@ -74,17 +85,19 @@ export class RefreshTokenService {
 
   /**
    * Melakukan actual refresh token API call
-   * @param refreshToken - Refresh token yang akan digunakan
+   * API endpoint menggunakan refresh token dari cookie, bukan dari body
+   * @param refreshToken - Refresh token yang akan digunakan (untuk validasi)
    * @returns Promise dengan access token baru
    */
   private static async performRefresh(refreshToken: string): Promise<string> {
     try {
       console.log('🔄 Refreshing access token...');
       
-      const response = await publicHttpClient.post('/auth/refresh', {
-        refreshToken
-      }, {
-        requireAuth: false // Tidak perlu auth header untuk refresh
+      // API endpoint /api/auth/refresh menggunakan refresh token dari cookie
+      // Tidak perlu mengirim refresh token dalam body
+      const response = await publicHttpClient.post('/auth/refresh', {}, {
+        requireAuth: false, // Tidak perlu auth header untuk refresh
+        credentials: 'include' // Pastikan cookie dikirim
       }) as AuthApiResponse;
 
       if (!response.success) {

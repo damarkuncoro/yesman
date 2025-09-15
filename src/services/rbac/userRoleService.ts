@@ -188,6 +188,52 @@ export class UserRoleService {
 
     return deletedCount;
   }
+
+  /**
+   * Update roles user dengan mengganti semua role yang ada
+   * @param userId - ID user
+   * @param roleIds - Array ID role yang akan di-assign
+   * @returns Promise<(UserRole & { role: Role })[]> - Array role user yang baru
+   * @throws UserNotFoundError jika user tidak ditemukan
+   * @throws RoleNotFoundError jika ada role yang tidak ditemukan
+   */
+  async updateUserRoles(userId: number, roleIds: number[]): Promise<(UserRole & { role: Role })[]> {
+    // Cek apakah user ada
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      throw new UserNotFoundError(userId);
+    }
+
+    // Validasi semua role ID ada
+    for (const roleId of roleIds) {
+      const role = await roleRepository.findById(roleId);
+      if (!role) {
+        throw new RoleNotFoundError(roleId);
+      }
+    }
+
+    // Hapus semua role user yang ada
+    await this.removeAllUserRoles(userId);
+
+    // Assign role baru
+    const newUserRoles: (UserRole & { role: Role })[] = [];
+    for (const roleId of roleIds) {
+      try {
+        const userRole = await this.assignRole({ userId, roleId });
+        const role = await roleRepository.findById(roleId);
+        if (role) {
+          newUserRoles.push({ ...userRole, role });
+        }
+      } catch (error) {
+        // Skip jika role sudah ada (seharusnya tidak terjadi karena sudah dihapus semua)
+        if (!(error instanceof RoleAssignmentExistsError)) {
+          throw error;
+        }
+      }
+    }
+
+    return newUserRoles;
+  }
 }
 
 // Export instance untuk digunakan di aplikasi

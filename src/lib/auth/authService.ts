@@ -586,7 +586,8 @@ export class AuthService implements IAuthService {
    * @throws AuthenticationError jika refresh token tidak valid
    */
   async refreshAccessToken(refreshToken: string): Promise<{ accessToken: string }> {
-    return await this.userAuthenticationService.refreshToken({ refreshToken });
+    const refreshResponse = await this.userAuthenticationService.refreshToken({ refreshToken });
+    return { accessToken: refreshResponse.accessToken };
   }
 
   /**

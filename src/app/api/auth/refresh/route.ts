@@ -47,7 +47,8 @@ export async function POST(request: NextRequest) {
       success: true,
       message: "Token berhasil diperbarui",
       data: {
-        accessToken: refreshResponse.accessToken
+        accessToken: refreshResponse.accessToken,
+        refreshToken: validation.data! // Tambahkan refresh token ke response untuk localStorage
       }
     }, { status: 200 });
     

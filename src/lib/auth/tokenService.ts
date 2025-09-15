@@ -9,12 +9,17 @@ import type { TokenData, JWTPayload } from './authService/tokenService';
 import { useState, useEffect } from 'react';
 
 /**
- * Mock UserRepository untuk keperluan client-side
- * Dalam implementasi nyata, ini akan diganti dengan repository yang sesuai
+ * Client-side UserRepository implementation
+ * Untuk client-side, kita tidak bisa mengakses database secara langsung
+ * TokenService di client-side hanya digunakan untuk operasi localStorage dan token parsing
+ * Validasi user sebenarnya dilakukan di server-side melalui API calls
  */
-const mockUserRepository = {
+const clientSideUserRepository = {
   async findById(id: number) {
-    // Mock implementation - dalam production ini akan menggunakan API call
+    // Di client-side, kita tidak melakukan validasi user dari database
+    // Validasi sebenarnya dilakukan di server-side
+    // Ini hanya untuk memenuhi interface TokenService
+    console.warn('Client-side user validation - actual validation should be done server-side');
     return { id, email: `user${id}@example.com`, active: true };
   }
 };
@@ -30,7 +35,7 @@ let tokenServiceInstance: AuthTokenService | null = null;
  */
 function getTokenServiceInstance(): AuthTokenService {
   if (!tokenServiceInstance) {
-    tokenServiceInstance = createTokenService(mockUserRepository);
+    tokenServiceInstance = createTokenService(clientSideUserRepository);
   }
   return tokenServiceInstance;
 }

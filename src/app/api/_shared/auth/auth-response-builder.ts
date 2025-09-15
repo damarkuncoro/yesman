@@ -19,6 +19,7 @@ class AuthResponseBuilderClass extends ResponseBuilder<any> {
     const responseData = {
       user: authData.user,
       accessToken: authData.accessToken,
+      refreshToken: authData.refreshToken, // Tambahkan refresh token ke response
     };
 
     return this.success(responseData, message, status);
