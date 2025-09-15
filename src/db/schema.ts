@@ -52,6 +52,7 @@ export const features = pgTable("features", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 100 }).notNull().unique(),
   description: text("description"),
+  category: varchar("category", { length: 50 }).default("General"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -387,6 +388,7 @@ export const createRoleSchema = z.object({
 export const createFeatureSchema = z.object({
   name: z.string().min(1, "Nama feature diperlukan").max(100, "Nama feature maksimal 100 karakter"),
   description: z.string().optional(),
+  category: z.string().max(50, "Category maksimal 50 karakter").optional().default("General"),
 });
 
 export const assignRoleSchema = z.object({

@@ -20,24 +20,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shadcn/ui/select";
-import { IconPlus, IconSearch, IconEdit, IconEye, IconRoute } from "@tabler/icons-react";
+import { IconPlus, IconSearch, IconEdit, IconEye, IconRoute, IconTrash } from "@tabler/icons-react";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/shadcn/ui/alert-dialog";
 
 interface Route {
-  id: string;
+  id: number;
   path: string;
-  method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
-  featureName: string;
-  featureId: string;
-  description: string;
-  isActive: boolean;
-  roleCount: number;
-  createdAt: string;
+  method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | null;
+  featureId: number;
+  featureName?: string;
+  description?: string;
+  isActive?: boolean;
+  roleCount?: number;
+  createdAt?: string;
 }
 
 interface RouteListTabProps {
   onRouteSelect: (routeId: string) => void;
   onRouteEdit: (routeId: string) => void;
   onRouteCreate: () => void;
+  onRouteDelete?: (routeId: string) => void;
 }
 
 /**
@@ -48,6 +61,7 @@ export function RouteListTab({
   onRouteSelect,
   onRouteEdit,
   onRouteCreate,
+  onRouteDelete,
 }: RouteListTabProps) {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [filteredRoutes, setFilteredRoutes] = useState<Route[]>([]);
@@ -55,77 +69,70 @@ export function RouteListTab({
   const [methodFilter, setMethodFilter] = useState<string>("all");
   const [featureFilter, setFeatureFilter] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(true);
+  const [deletingRouteId, setDeletingRouteId] = useState<string | null>(null);
+  const [routeToDelete, setRouteToDelete] = useState<Route | null>(null);
 
-  // Data dummy untuk demonstrasi
-  const dummyRoutes: Route[] = [
-    {
-      id: "1",
-      path: "/api/users/:id",
-      method: "GET",
-      featureName: "User Management",
-      featureId: "user_management",
-      description: "Get user by ID",
-      isActive: true,
-      roleCount: 3,
-      createdAt: "2024-01-15",
-    },
-    {
-      id: "2",
-      path: "/api/users",
-      method: "POST",
-      featureName: "User Management",
-      featureId: "user_management",
-      description: "Create new user",
-      isActive: true,
-      roleCount: 2,
-      createdAt: "2024-01-15",
-    },
-    {
-      id: "3",
-      path: "/api/roles/:id",
-      method: "PUT",
-      featureName: "Role Management",
-      featureId: "role_management",
-      description: "Update role",
-      isActive: true,
-      roleCount: 1,
-      createdAt: "2024-01-16",
-    },
-    {
-      id: "4",
-      path: "/api/features",
-      method: "GET",
-      featureName: "Feature Management",
-      featureId: "feature_management",
-      description: "List all features",
-      isActive: true,
-      roleCount: 2,
-      createdAt: "2024-01-17",
-    },
-    {
-      id: "5",
-      path: "/api/routes/:id",
-      method: "DELETE",
-      featureName: "Route Management",
-      featureId: "route_management",
-      description: "Delete route",
-      isActive: false,
-      roleCount: 1,
-      createdAt: "2024-01-18",
-    },
-  ];
+  const { accessToken } = useAuth();
 
   /**
-   * Load data route saat komponen dimount
+   * Handle delete route confirmation
+   */
+  const handleDeleteConfirm = async () => {
+    if (!onRouteDelete || !routeToDelete) return;
+    
+    setDeletingRouteId(routeToDelete.id.toString());
+    try {
+      await onRouteDelete(routeToDelete.id.toString());
+      // Refresh routes after deletion
+      const updatedRoutes = routes.filter(route => route.id !== routeToDelete.id);
+      setRoutes(updatedRoutes);
+      setFilteredRoutes(updatedRoutes);
+    } catch (error) {
+      console.error('Error deleting route:', error);
+    } finally {
+      setDeletingRouteId(null);
+      setRouteToDelete(null);
+    }
+  };
+
+  /**
+   * Load data route dari API saat komponen dimount
    */
   useEffect(() => {
     const loadRoutes = async () => {
+      if (!accessToken) return;
+      
       setIsLoading(true);
       try {
-        // Simulasi API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setRoutes(dummyRoutes);
-        setFilteredRoutes(dummyRoutes);
+        const response = await fetch('/api/rbac/route-features', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch route features');
+        }
+        
+        const data = await response.json();
+        if (data.success) {
+          // Transform data untuk UI
+          const transformedRoutes: Route[] = data.data.routeFeatures.map((item: any) => ({
+            id: item.id,
+            path: item.path,
+            method: item.method,
+            featureId: item.featureId,
+            featureName: `Feature ${item.featureId}`, // Placeholder, bisa diambil dari API features
+            description: `Route ${item.method || 'ALL'} ${item.path}`,
+            isActive: true,
+            roleCount: 0, // Placeholder
+            createdAt: new Date().toISOString().split('T')[0],
+          }));
+          
+          setRoutes(transformedRoutes);
+          setFilteredRoutes(transformedRoutes);
+        }
       } catch (error) {
         console.error("Error loading routes:", error);
       } finally {
@@ -134,7 +141,7 @@ export function RouteListTab({
     };
 
     loadRoutes();
-  }, []);
+  }, [accessToken]);
 
   /**
    * Filter routes berdasarkan search term, method, dan feature
@@ -147,8 +154,8 @@ export function RouteListTab({
       filtered = filtered.filter(
         (route) =>
           route.path.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          route.featureName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          route.description.toLowerCase().includes(searchTerm.toLowerCase())
+          (route.featureName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (route.description || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -159,7 +166,7 @@ export function RouteListTab({
 
     // Filter berdasarkan feature
     if (featureFilter !== "all") {
-      filtered = filtered.filter((route) => route.featureId === featureFilter);
+      filtered = filtered.filter((route) => route.featureId.toString() === featureFilter);
     }
 
     setFilteredRoutes(filtered);
@@ -173,8 +180,8 @@ export function RouteListTab({
   ).map((featureId) => {
     const route = routes.find((r) => r.featureId === featureId);
     return {
-      id: featureId,
-      name: route?.featureName || featureId,
+      id: featureId.toString(),
+      name: route?.featureName || `Feature ${featureId}`,
     };
   });
 
@@ -318,13 +325,17 @@ export function RouteListTab({
                 </TableHeader>
                 <TableBody>
                   {filteredRoutes.map((route) => (
-                    <TableRow key={route.id} className="hover:bg-muted/50">
+                    <TableRow 
+                      key={route.id} 
+                      className="hover:bg-muted/50 cursor-pointer" 
+                      onClick={() => onRouteSelect(route.id.toString())}
+                    >
                       <TableCell>
                         <Badge
                           variant="secondary"
-                          className={getMethodBadgeColor(route.method)}
+                          className={getMethodBadgeColor(route.method || 'GET')}
                         >
-                          {route.method}
+                          {route.method || 'ALL'}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -334,14 +345,14 @@ export function RouteListTab({
                       </TableCell>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{route.featureName}</p>
+                          <p className="font-medium">{route.featureName || `Feature ${route.featureId}`}</p>
                           <p className="text-sm text-muted-foreground">
                             {route.featureId}
                           </p>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <p className="text-sm">{route.description}</p>
+                        <p className="text-sm">{route.description || 'No description'}</p>
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
@@ -357,7 +368,9 @@ export function RouteListTab({
                       </TableCell>
                       <TableCell>
                         <p className="text-sm text-muted-foreground">
-                          {new Date(route.createdAt).toLocaleDateString()}
+                          {route.createdAt
+                            ? new Date(route.createdAt).toLocaleDateString()
+                            : "-"}
                         </p>
                       </TableCell>
                       <TableCell className="text-right">
@@ -365,7 +378,10 @@ export function RouteListTab({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => onRouteSelect(route.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRouteSelect(route.id.toString());
+                            }}
                             className="h-8 w-8 p-0"
                           >
                             <IconEye className="h-4 w-4" />
@@ -373,11 +389,53 @@ export function RouteListTab({
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => onRouteEdit(route.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRouteEdit(route.id.toString());
+                            }}
                             className="h-8 w-8 p-0"
                           >
                             <IconEdit className="h-4 w-4" />
                           </Button>
+                          {onRouteDelete && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={deletingRouteId === route.id.toString()}
+                                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <IconTrash className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Route</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete this route?
+                                    <br />
+                                    <strong>{route.method} {route.path}</strong>
+                                    <br />
+                                    This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => {
+                                      setRouteToDelete(route);
+                                      handleDeleteConfirm();
+                                    }}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

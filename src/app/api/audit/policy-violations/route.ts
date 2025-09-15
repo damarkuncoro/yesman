@@ -27,14 +27,14 @@ export const GET = withAuthentication(async (request: NextRequest) => {
     
     // Parse dan validasi query parameters
     const queryResult = policyViolationsQuerySchema.safeParse({
-      userId: searchParams.get('userId'),
-      featureId: searchParams.get('featureId'),
-      policyId: searchParams.get('policyId'),
-      attribute: searchParams.get('attribute'),
-      startDate: searchParams.get('startDate'),
-      endDate: searchParams.get('endDate'),
-      limit: searchParams.get('limit'),
-      offset: searchParams.get('offset')
+      userId: searchParams.get('userId') || undefined,
+      featureId: searchParams.get('featureId') || undefined,
+      policyId: searchParams.get('policyId') || undefined,
+      attribute: searchParams.get('attribute') || undefined,
+      startDate: searchParams.get('startDate') || undefined,
+      endDate: searchParams.get('endDate') || undefined,
+      limit: searchParams.get('limit') || undefined,
+      offset: searchParams.get('offset') || undefined
     });
 
     if (!queryResult.success) {

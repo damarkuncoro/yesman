@@ -1,0 +1,1 @@
+ALTER TABLE "features" ADD COLUMN "category" varchar(50) DEFAULT 'General';

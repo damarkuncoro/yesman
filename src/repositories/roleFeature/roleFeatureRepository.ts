@@ -1,6 +1,7 @@
 import { eq, and, count } from "drizzle-orm";
 import { db } from "@/db";
-import { roleFeatures, type RoleFeature, type NewRoleFeature } from "@/db/schema";
+import { roleFeatures, features } from "@/db/schema";
+import type { RoleFeature, NewRoleFeature } from "@/db/schema";
 import { BaseRepository, CrudRepository, CountableRepository } from "../base/baseRepository";
 
 /**
@@ -9,6 +10,9 @@ import { BaseRepository, CrudRepository, CountableRepository } from "../base/bas
  * Mengextend BaseRepository untuk menghilangkan duplikasi kode
  */
 export class RoleFeatureRepository extends BaseRepository implements CrudRepository<RoleFeature, NewRoleFeature>, CountableRepository {
+  constructor() {
+    super('RoleFeatureRepository');
+  }
   /**
    * Mengambil semua role feature dari database
    * @returns Promise<RoleFeature[]> - Array semua role feature
@@ -25,10 +29,15 @@ export class RoleFeatureRepository extends BaseRepository implements CrudReposit
    * @returns Promise<RoleFeature | undefined> - RoleFeature jika ditemukan, undefined jika tidak
    */
   async findById(id: number): Promise<RoleFeature | undefined> {
-    return this.executeWithErrorHandling('find role feature by ID', async () => {
-      const result = await db!.select().from(roleFeatures).where(eq(roleFeatures.id, id)).limit(1);
-      return this.getFirstResult(result);
-    });
+    return this.executeWithErrorHandling(
+      'find role feature by ID', 
+      async () => {
+        const result = await db!.select().from(roleFeatures).where(eq(roleFeatures.id, id)).limit(1);
+        return this.getFirstResult(result);
+      },
+      { searchId: id },
+      id
+    );
   }
 
   /**
@@ -39,6 +48,31 @@ export class RoleFeatureRepository extends BaseRepository implements CrudReposit
   async findByRoleId(roleId: number): Promise<RoleFeature[]> {
     return this.executeWithErrorHandling('find role features by role ID', async () => {
       return await db!.select().from(roleFeatures).where(eq(roleFeatures.roleId, roleId));
+    });
+  }
+
+  /**
+   * Mencari role feature berdasarkan role ID dengan detail feature (join)
+   * @param roleId - ID role yang dicari
+   * @returns Promise dengan array role features beserta detail feature
+   */
+  async findByRoleIdWithFeatures(roleId: number) {
+    return this.executeWithErrorHandling('find role features with feature details by role ID', async () => {
+      return await db!.select({
+        id: roleFeatures.id,
+        roleId: roleFeatures.roleId,
+        featureId: roleFeatures.featureId,
+        canCreate: roleFeatures.canCreate,
+        canRead: roleFeatures.canRead,
+        canUpdate: roleFeatures.canUpdate,
+        canDelete: roleFeatures.canDelete,
+        featureName: features.name,
+        featureDescription: features.description,
+        featureCategory: features.category
+      })
+      .from(roleFeatures)
+      .innerJoin(features, eq(roleFeatures.featureId, features.id))
+      .where(eq(roleFeatures.roleId, roleId));
     });
   }
 
@@ -168,9 +202,11 @@ export class RoleFeatureRepository extends BaseRepository implements CrudReposit
    * @returns Promise<boolean> - true jika role memiliki feature, false jika tidak
    */
   async roleHasFeature(roleId: number, featureId: number): Promise<boolean> {
-    return this.executeWithErrorHandling('check role has feature', async () => {
-      const roleFeature = await this.findByRoleAndFeature(roleId, featureId);
-      return roleFeature !== undefined;
+    return this.executeWithErrorHandling('check if role has feature', async () => {
+      const result = await db!.select().from(roleFeatures)
+        .where(and(eq(roleFeatures.roleId, roleId), eq(roleFeatures.featureId, featureId)))
+        .limit(1);
+      return result.length > 0;
     });
   }
 
@@ -230,4 +266,4 @@ export class RoleFeatureRepository extends BaseRepository implements CrudReposit
 }
 
 // Export instance untuk backward compatibility
-export const roleFeatureRepository = new RoleFeatureRepository('RoleFeatureRepository');
+export const roleFeatureRepository = new RoleFeatureRepository();

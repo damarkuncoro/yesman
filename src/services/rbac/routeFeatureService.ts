@@ -17,6 +17,15 @@ export class RouteFeatureService {
   }
 
   /**
+   * Mengambil route-feature mapping berdasarkan ID
+   * @param id - ID route-feature mapping
+   * @returns Promise<RouteFeature | undefined> - RouteFeature jika ditemukan
+   */
+  async getRouteMappingById(id: number): Promise<RouteFeature | undefined> {
+    return await routeFeatureRepository.findById(id);
+  }
+
+  /**
    * Membuat route-feature mapping baru
    * @param routeData - Data route-feature mapping
    * @returns Promise<RouteFeature> - RouteFeature yang baru dibuat

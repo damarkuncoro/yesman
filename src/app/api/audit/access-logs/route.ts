@@ -28,15 +28,15 @@ export const GET = withAuthentication(async (request: NextRequest) => {
     
     // Parse dan validasi query parameters
     const queryResult = accessLogsQuerySchema.safeParse({
-      userId: searchParams.get('userId'),
-      roleId: searchParams.get('roleId'),
-      featureId: searchParams.get('featureId'),
-      decision: searchParams.get('decision'),
-      path: searchParams.get('path'),
-      startDate: searchParams.get('startDate'),
-      endDate: searchParams.get('endDate'),
-      limit: searchParams.get('limit'),
-      offset: searchParams.get('offset')
+      userId: searchParams.get('userId') || undefined,
+      roleId: searchParams.get('roleId') || undefined,
+      featureId: searchParams.get('featureId') || undefined,
+      decision: searchParams.get('decision') || undefined,
+      path: searchParams.get('path') || undefined,
+      startDate: searchParams.get('startDate') || undefined,
+      endDate: searchParams.get('endDate') || undefined,
+      limit: searchParams.get('limit') || undefined,
+      offset: searchParams.get('offset') || undefined
     });
 
     if (!queryResult.success) {
@@ -65,10 +65,20 @@ export const GET = withAuthentication(async (request: NextRequest) => {
     // Hitung total untuk pagination
     const total = allLogs.length;
 
+    // Hitung statistik
+    const stats = {
+      total: allLogs.length,
+      allowed: allLogs.filter(log => log.decision === 'allow').length,
+      denied: allLogs.filter(log => log.decision === 'deny').length,
+      uniqueUsers: new Set(allLogs.filter(log => log.userId).map(log => log.userId)).size,
+      uniquePaths: new Set(allLogs.map(log => log.path)).size
+    };
+
     return NextResponse.json({
       success: true,
       data: {
         logs,
+        stats,
         total,
         limit: filters.limit,
         offset: filters.offset,

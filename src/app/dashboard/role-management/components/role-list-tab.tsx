@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/shadcn/ui/button"
 import { Input } from "@/components/shadcn/ui/input"
 import { Badge } from "@/components/shadcn/ui/badge"
@@ -13,67 +13,41 @@ import {
   TableRow,
 } from "@/components/shadcn/ui/table"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/shadcn/ui/dropdown-menu"
+import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/shadcn/ui/card"
-import { IconPlus, IconSearch, IconEdit, IconUsers, IconEye } from "@tabler/icons-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/shadcn/ui/alert-dialog"
+import { IconPlus, IconSearch, IconEdit, IconUsers, IconEye, IconTrash, IconRefresh, IconDots } from "@tabler/icons-react"
+import { toast } from "sonner"
+import { useAuth } from "@/contexts/AuthContext"
 
-// Mock data untuk roles
-const mockRoles = [
-  {
-    id: "1",
-    name: "Admin",
-    description: "Full system administrator access",
-    grantsAll: true,
-    featureCount: 25,
-    userCount: 3,
-    createdAt: "2024-01-15",
-    updatedAt: "2024-01-20"
-  },
-  {
-    id: "2",
-    name: "Editor",
-    description: "Content management and editing permissions",
-    grantsAll: false,
-    featureCount: 12,
-    userCount: 8,
-    createdAt: "2024-01-16",
-    updatedAt: "2024-01-18"
-  },
-  {
-    id: "3",
-    name: "Viewer",
-    description: "Read-only access to system resources",
-    grantsAll: false,
-    featureCount: 5,
-    userCount: 15,
-    createdAt: "2024-01-17",
-    updatedAt: "2024-01-17"
-  },
-  {
-    id: "4",
-    name: "Manager",
-    description: "Department management and reporting access",
-    grantsAll: false,
-    featureCount: 18,
-    userCount: 6,
-    createdAt: "2024-01-18",
-    updatedAt: "2024-01-22"
-  },
-  {
-    id: "5",
-    name: "Analyst",
-    description: "Data analysis and reporting permissions",
-    grantsAll: false,
-    featureCount: 8,
-    userCount: 4,
-    createdAt: "2024-01-19",
-    updatedAt: "2024-01-21"
-  }
-]
+interface Role {
+  id: number
+  name: string
+  description: string | null
+  grantsAll: boolean
+  createdAt: string
+  updatedAt: string
+}
 
 interface RoleListTabProps {
   onRoleSelect: (roleId: string) => void
@@ -92,16 +66,125 @@ export function RoleListTab({
   onRoleCreate, 
   onRoleUserMapping 
 }: RoleListTabProps) {
+  const [roles, setRoles] = useState<Role[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [roles] = useState(mockRoles) // Nanti akan diganti dengan API call
+  const [deletingRoleId, setDeletingRoleId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(10)
+  const [lastFetch, setLastFetch] = useState<Date | null>(null)
+  const [autoRefresh, setAutoRefresh] = useState(false)
+  const { accessToken } = useAuth()
+
+  /**
+   * Fetch roles dari API
+   */
+  const fetchRoles = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const response = await fetch('/api/roles', {
+         headers: {
+           'Authorization': `Bearer ${accessToken}`,
+           'Content-Type': 'application/json'
+         }
+       })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch roles')
+      }
+
+      const data = await response.json()
+      console.log('API Response:', data)
+      
+      // Pastikan data yang diterima adalah array
+      const rolesData = Array.isArray(data.data?.roles) ? data.data.roles : []
+      console.log('Roles data:', rolesData)
+      setRoles(rolesData)
+       setLastFetch(new Date())
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch roles'
+      setError(errorMessage)
+      toast.error(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+     if (accessToken) {
+       fetchRoles()
+     }
+   }, [accessToken])
+
+   /**
+    * Auto refresh setiap 30 detik jika diaktifkan
+    */
+   useEffect(() => {
+     if (!autoRefresh || !accessToken) return
+
+     const interval = setInterval(() => {
+       fetchRoles()
+     }, 30000) // 30 seconds
+
+     return () => clearInterval(interval)
+   }, [autoRefresh, accessToken])
+
+  /**
+   * Hapus role dengan konfirmasi
+   */
+  const handleDeleteRole = async (roleId: string, roleName: string) => {
+    try {
+      setDeletingRoleId(roleId)
+      
+      const response = await fetch(`/api/roles/${roleId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete role')
+      }
+
+      // Refresh data setelah delete
+      await fetchRoles()
+      toast.success(`Role "${roleName}" berhasil dihapus`)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete role'
+      toast.error(errorMessage)
+    } finally {
+      setDeletingRoleId(null)
+    }
+  }
 
   /**
    * Filter roles berdasarkan search term
+   * Pastikan roles adalah array sebelum menggunakan filter
    */
-  const filteredRoles = roles.filter(role =>
+  const filteredRoles = Array.isArray(roles) ? roles.filter(role =>
     role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    role.description.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+    (role.description && role.description.toLowerCase().includes(searchTerm.toLowerCase()))
+  ) : []
+
+  /**
+   * Pagination logic
+   */
+  const totalPages = Math.ceil(filteredRoles.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedRoles = filteredRoles.slice(startIndex, endIndex)
+
+  /**
+   * Reset pagination when search changes
+   */
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm])
 
   /**
    * Render badge untuk grantsAll status
@@ -114,6 +197,47 @@ export function RoleListTab({
     )
   }
 
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Role Management</CardTitle>
+          <CardDescription>
+            Kelola role dan permissions dalam sistem RBAC/ABAC
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            Loading roles...
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Role Management</CardTitle>
+          <CardDescription>
+            Kelola role dan permissions dalam sistem RBAC/ABAC
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-red-600">
+            Error: {error}
+            <div className="mt-2">
+              <Button onClick={fetchRoles} variant="outline" size="sm">
+                Retry
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -122,23 +246,49 @@ export function RoleListTab({
             <CardTitle>Role Management</CardTitle>
             <CardDescription>
               Kelola role dan permissions dalam sistem RBAC/ABAC
+              {lastFetch && (
+                <span className="block text-xs mt-1">
+                  Last updated: {lastFetch.toLocaleTimeString('id-ID')}
+                </span>
+              )}
             </CardDescription>
           </div>
-          <Button onClick={onRoleCreate}>
-            <IconPlus className="mr-2 h-4 w-4" />
-            Create Role
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className={autoRefresh ? "bg-green-50 border-green-200" : ""}
+            >
+              <IconRefresh className={`h-4 w-4 ${autoRefresh ? 'animate-spin' : ''}`} />
+              {autoRefresh ? 'Auto' : 'Manual'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchRoles}
+              disabled={loading}
+            >
+              <IconRefresh className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button onClick={onRoleCreate} className="flex items-center gap-2">
+              <IconPlus className="h-4 w-4" />
+              Add Role
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="mb-4">
-          <div className="relative">
-            <IconSearch className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+        {/* Search Bar */}
+        <div className="flex items-center gap-2 mb-6">
+          <div className="relative flex-1">
+            <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search roles..."
+              placeholder="Search roles by name or description..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
+              className="pl-10"
             />
           </div>
         </div>
@@ -150,18 +300,24 @@ export function RoleListTab({
                 <TableHead>Role Name</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Access Type</TableHead>
-                <TableHead>Features</TableHead>
-                <TableHead>Users</TableHead>
+
                 <TableHead>Created</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredRoles.map((role) => (
+              {paginatedRoles.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8">
+                    {searchTerm ? 'No roles found matching your search.' : 'No roles available.'}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginatedRoles.map((role) => (
                 <TableRow key={role.id}>
                   <TableCell className="font-medium">
                     <button
-                      onClick={() => onRoleSelect(role.id)}
+                      onClick={() => onRoleSelect(role.id.toString())}
                       className="text-blue-600 hover:text-blue-800 hover:underline"
                     >
                       {role.name}
@@ -173,58 +329,106 @@ export function RoleListTab({
                   <TableCell>
                     {renderGrantsAllBadge(role.grantsAll)}
                   </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {role.featureCount} features
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {role.userCount} users
-                    </Badge>
-                  </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {new Date(role.createdAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onRoleSelect(role.id)}
-                        title="View Details"
-                      >
-                        <IconEye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onRoleEdit(role.id)}
-                        title="Edit Role"
-                      >
-                        <IconEdit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onRoleUserMapping(role.id)}
-                        title="View Users"
-                      >
-                        <IconUsers className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          className="h-8 w-8 p-0"
+                        >
+                          <IconDots className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onRoleSelect(role.id.toString())}>
+                          <IconEye className="mr-2 h-4 w-4" />
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onRoleEdit(role.id.toString())}>
+                          <IconEdit className="mr-2 h-4 w-4" />
+                          Edit Role
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onRoleUserMapping(role.id.toString())}>
+                          <IconUsers className="mr-2 h-4 w-4" />
+                          Manage Users
+                        </DropdownMenuItem>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <DropdownMenuItem 
+                              onSelect={(e) => e.preventDefault()}
+                              className="text-red-600 focus:text-red-600"
+                              disabled={deletingRoleId === role.id.toString()}
+                            >
+                              <IconTrash className="mr-2 h-4 w-4" />
+                              Delete Role
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Hapus Role</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Apakah Anda yakin ingin menghapus role "{role.name}"? 
+                                Tindakan ini tidak dapat dibatalkan dan akan menghapus semua permissions yang terkait dengan role ini.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Batal</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteRole(role.id.toString(), role.name)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Hapus
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))}
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
 
-        {filteredRoles.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            No roles found matching your search.
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-4">
+            <div className="text-sm text-muted-foreground">
+              Showing {startIndex + 1} to {Math.min(endIndex, filteredRoles.length)} of {filteredRoles.length} roles
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <span className="text-sm">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         )}
+
+        {/* Summary */}
+        <div className="mt-2 text-sm text-muted-foreground">
+          Total: {roles.length} roles
+        </div>
       </CardContent>
     </Card>
   )

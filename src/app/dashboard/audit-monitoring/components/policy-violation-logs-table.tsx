@@ -7,9 +7,11 @@ import { Badge } from "@/components/shadcn/ui/badge";
 import { Button } from "@/components/shadcn/ui/button";
 import { Input } from "@/components/shadcn/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shadcn/ui/select";
-import { AlertTriangleIcon, FilterIcon, RefreshCwIcon } from "lucide-react";
+import { AlertTriangleIcon, FilterIcon, RefreshCwIcon, UserIcon, ShieldIcon } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface PolicyViolation {
   id: number;
@@ -58,9 +60,11 @@ export function PolicyViolationLogsTable() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  const { accessToken, refreshToken } = useAuth();
+  
   // Filter states
   const [filters, setFilters] = useState({
-    attribute: '',
+    attribute: 'all',
     userId: '',
     featureId: '',
     policyId: ''
@@ -73,13 +77,19 @@ export function PolicyViolationLogsTable() {
    * Mengambil data policy violations dari API
    */
   const fetchPolicyViolations = async () => {
+    if (!accessToken) {
+      toast.error('Token akses tidak tersedia');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       
       // Build query parameters
       const params = new URLSearchParams();
-      if (filters.attribute) params.append('attribute', filters.attribute);
+      if (filters.attribute && filters.attribute !== 'all') params.append('attribute', filters.attribute);
       if (filters.userId) params.append('userId', filters.userId);
       if (filters.featureId) params.append('featureId', filters.featureId);
       if (filters.policyId) params.append('policyId', filters.policyId);
@@ -87,17 +97,43 @@ export function PolicyViolationLogsTable() {
       const queryString = params.toString();
       const url = `/api/audit/policy-violations${queryString ? `?${queryString}` : ''}`;
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const result = await response.json();
+      
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // Jika token expired, coba refresh token
+        if (response.status === 401) {
+          try {
+            await refreshToken();
+            // Retry request dengan token baru
+            return fetchPolicyViolations();
+          } catch (refreshError) {
+            throw new Error('Sesi telah berakhir, silakan login kembali');
+          }
+        }
+        throw new Error(result.message || 'Gagal mengambil data policy violations');
       }
       
-      const data = await response.json();
-      setViolations(data.violations || []);
-      setStats(data.stats || null);
+      if (result.success && result.data) {
+        setViolations(result.data.violations || []);
+        setStats(result.data.stats || null);
+      } else {
+        throw new Error('Format response tidak valid');
+      }
     } catch (err) {
       console.error('Error fetching policy violations:', err);
-      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat mengambil data');
+      const errorMessage = err instanceof Error ? err.message : 'Terjadi kesalahan saat mengambil data';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      setViolations([]);
+      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -123,7 +159,7 @@ export function PolicyViolationLogsTable() {
    */
   const handleResetFilters = () => {
     setFilters({
-      attribute: '',
+      attribute: 'all',
       userId: '',
       featureId: '',
       policyId: ''
@@ -290,7 +326,7 @@ export function PolicyViolationLogsTable() {
                 <SelectValue placeholder="Attribute" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Semua</SelectItem>
+                <SelectItem value="all">Semua</SelectItem>
                 <SelectItem value="department">Department</SelectItem>
                 <SelectItem value="region">Region</SelectItem>
                 <SelectItem value="level">Level</SelectItem>

@@ -7,9 +7,11 @@ import { Badge } from "@/components/shadcn/ui/badge";
 import { Button } from "@/components/shadcn/ui/button";
 import { Input } from "@/components/shadcn/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shadcn/ui/select";
-import { CalendarIcon, FilterIcon, RefreshCwIcon } from "lucide-react";
+import { ShieldCheckIcon, ShieldXIcon, FilterIcon, RefreshCwIcon, UserIcon } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AccessLog {
   id: number;
@@ -49,17 +51,20 @@ interface AccessLogsStats {
  * Menampilkan semua request user dengan role, path, dan hasil (allow/deny)
  */
 export function AccessLogsTable() {
-  const [accessLogs, setAccessLogs] = useState<AccessLog[]>([]);
+  const [logs, setLogs] = useState<AccessLog[]>([]);
   const [stats, setStats] = useState<AccessLogsStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  const { accessToken } = useAuth();
+  
   // Filter states
   const [filters, setFilters] = useState({
-    decision: '',
-    pathPattern: '',
+    decision: 'all',
+    path: '',
     userId: '',
-    roleId: ''
+    roleId: '',
+    featureId: ''
   });
   
   const [currentPage, setCurrentPage] = useState(1);
@@ -69,31 +74,53 @@ export function AccessLogsTable() {
    * Mengambil data access logs dari API
    */
   const fetchAccessLogs = async () => {
+    if (!accessToken) {
+      toast.error('Token akses tidak tersedia');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       
       // Build query parameters
       const params = new URLSearchParams();
-      if (filters.decision) params.append('decision', filters.decision);
-      if (filters.pathPattern) params.append('pathPattern', filters.pathPattern);
-      if (filters.userId) params.append('userId', filters.userId);
-      if (filters.roleId) params.append('roleId', filters.roleId);
+      if (filters.userId) params.append('userId', filters.userId.toString());
+      if (filters.decision && filters.decision !== 'all') params.append('decision', filters.decision);
+      if (filters.featureId) params.append('featureId', filters.featureId.toString());
+      if (filters.path) params.append('path', filters.path);
       
       const queryString = params.toString();
       const url = `/api/audit/access-logs${queryString ? `?${queryString}` : ''}`;
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const result = await response.json();
+      
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(result.message || 'Gagal mengambil data access logs');
       }
       
-      const data = await response.json();
-      setAccessLogs(data.accessLogs || []);
-      setStats(data.stats || null);
+      if (result.success && result.data) {
+        setLogs(result.data.logs || []);
+        setStats(result.data.stats || null);
+      } else {
+        throw new Error('Format response tidak valid');
+      }
     } catch (err) {
       console.error('Error fetching access logs:', err);
-      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat mengambil data');
+      const errorMessage = err instanceof Error ? err.message : 'Terjadi kesalahan saat mengambil data';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      setLogs([]);
+      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -119,11 +146,12 @@ export function AccessLogsTable() {
    */
   const handleResetFilters = () => {
     setFilters({
-      decision: '',
-      pathPattern: '',
-      userId: '',
-      roleId: ''
-    });
+        decision: 'all',
+        path: '',
+        userId: '',
+        roleId: '',
+        featureId: ''
+      });
     setCurrentPage(1);
   };
 
@@ -142,10 +170,10 @@ export function AccessLogsTable() {
   };
 
   // Pagination logic
-  const totalPages = Math.ceil(accessLogs.length / itemsPerPage);
+  const totalPages = Math.ceil(logs.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentAccessLogs = accessLogs.slice(startIndex, endIndex);
+  const currentAccessLogs = logs.slice(startIndex, endIndex);
 
   if (loading) {
     return (
@@ -250,7 +278,7 @@ export function AccessLogsTable() {
                 <SelectValue placeholder="Decision" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Semua</SelectItem>
+                <SelectItem value="all">Semua</SelectItem>
                 <SelectItem value="allow">Allow</SelectItem>
                 <SelectItem value="deny">Deny</SelectItem>
               </SelectContent>
@@ -258,8 +286,8 @@ export function AccessLogsTable() {
             
             <Input
               placeholder="Path pattern..."
-              value={filters.pathPattern}
-              onChange={(e) => handleFilterChange('pathPattern', e.target.value)}
+              value={filters.path}
+              onChange={(e) => handleFilterChange('path', e.target.value)}
               className="w-40"
             />
             
@@ -300,9 +328,15 @@ export function AccessLogsTable() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {currentAccessLogs.length === 0 ? (
+                {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      Memuat data...
+                    </TableCell>
+                  </TableRow>
+                ) : currentAccessLogs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       Tidak ada data access logs
                     </TableCell>
                   </TableRow>
@@ -369,7 +403,7 @@ export function AccessLogsTable() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
               <div className="text-sm text-muted-foreground">
-                Menampilkan {startIndex + 1}-{Math.min(endIndex, accessLogs.length)} dari {accessLogs.length} data
+                Menampilkan {startIndex + 1}-{Math.min(endIndex, logs.length)} dari {logs.length} data
               </div>
               <div className="flex items-center gap-2">
                 <Button

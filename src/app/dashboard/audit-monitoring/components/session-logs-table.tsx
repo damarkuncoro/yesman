@@ -7,9 +7,11 @@ import { Badge } from "@/components/shadcn/ui/badge";
 import { Button } from "@/components/shadcn/ui/button";
 import { Input } from "@/components/shadcn/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shadcn/ui/select";
-import { ActivityIcon, FilterIcon, RefreshCwIcon, LogInIcon, LogOutIcon, ShieldOffIcon } from "lucide-react";
+import { UserIcon, FilterIcon, RefreshCwIcon, ClockIcon, LogInIcon, LogOutIcon, ShieldOffIcon, ActivityIcon, ArrowUpIcon, ArrowDownIcon } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SessionLog {
   id: number;
@@ -43,18 +45,23 @@ interface SessionStats {
  * Menampilkan user login/logout, refresh token revoke
  */
 export function SessionLogsTable() {
-  const [sessions, setSessions] = useState<SessionLog[]>([]);
+  const [sessionLogs, setSessionLogs] = useState<SessionLog[]>([]);
   const [stats, setStats] = useState<SessionStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  const { accessToken } = useAuth();
+  
   // Filter states
   const [filters, setFilters] = useState({
-    action: '',
+    action: 'all',
     userId: '',
-    success: '',
+    success: 'all',
     ipAddress: ''
   });
+  
+  // Sorting states
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc'); // Default: newest first
   
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
@@ -63,31 +70,54 @@ export function SessionLogsTable() {
    * Mengambil data session logs dari API
    */
   const fetchSessionLogs = async () => {
+    if (!accessToken) {
+      toast.error('Token akses tidak tersedia');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       
       // Build query parameters
       const params = new URLSearchParams();
-      if (filters.action) params.append('action', filters.action);
+      if (filters.action && filters.action !== 'all') params.append('action', filters.action);
       if (filters.userId) params.append('userId', filters.userId);
-      if (filters.success) params.append('success', filters.success);
+      if (filters.success && filters.success !== 'all') params.append('success', filters.success);
       if (filters.ipAddress) params.append('ipAddress', filters.ipAddress);
       
       const queryString = params.toString();
       const url = `/api/audit/session-logs${queryString ? `?${queryString}` : ''}`;
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const result = await response.json();
+      
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(result.message || 'Gagal mengambil data session logs');
       }
       
-      const data = await response.json();
-      setSessions(data.sessions || []);
-      setStats(data.stats || null);
+      // Handle response structure: sessions and stats are directly in response
+      if (result.sessions !== undefined && result.stats !== undefined) {
+        setSessionLogs(result.sessions || []);
+        setStats(result.stats || null);
+      } else {
+        throw new Error('Format response tidak valid');
+      }
     } catch (err) {
       console.error('Error fetching session logs:', err);
-      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat mengambil data');
+      const errorMessage = err instanceof Error ? err.message : 'Terjadi kesalahan saat mengambil data';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      setSessionLogs([]);
+      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -113,13 +143,31 @@ export function SessionLogsTable() {
    */
   const handleResetFilters = () => {
     setFilters({
-      action: '',
+      action: 'all',
       userId: '',
-      success: '',
+      success: 'all',
       ipAddress: ''
     });
     setCurrentPage(1);
   };
+
+  /**
+   * Handler untuk mengubah urutan sorting berdasarkan tanggal
+   */
+  const handleSortToggle = () => {
+    setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+    setCurrentPage(1); // Reset ke halaman pertama saat sorting berubah
+  };
+
+  /**
+   * Mengurutkan session logs berdasarkan tanggal
+   */
+  const sortedSessionLogs = [...sessionLogs].sort((a, b) => {
+    const dateA = new Date(a.createdAt).getTime();
+    const dateB = new Date(b.createdAt).getTime();
+    
+    return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+  });
 
   /**
    * Mendapatkan badge variant berdasarkan action
@@ -200,11 +248,11 @@ export function SessionLogsTable() {
     }
   };
 
-  // Pagination logic
-  const totalPages = Math.ceil(sessions.length / itemsPerPage);
+  // Pagination logic with sorted data
+  const totalPages = Math.ceil(sortedSessionLogs.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentSessions = sessions.slice(startIndex, endIndex);
+  const currentSessionLogs = sortedSessionLogs.slice(startIndex, endIndex);
 
   if (loading) {
     return (
@@ -325,7 +373,7 @@ export function SessionLogsTable() {
                 <SelectValue placeholder="Action" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Semua</SelectItem>
+                <SelectItem value="all">Semua</SelectItem>
                 <SelectItem value="login">Login</SelectItem>
                 <SelectItem value="logout">Logout</SelectItem>
                 <SelectItem value="token_refresh">Token Refresh</SelectItem>
@@ -338,7 +386,7 @@ export function SessionLogsTable() {
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Semua</SelectItem>
+                <SelectItem value="all">Semua</SelectItem>
                 <SelectItem value="true">Success</SelectItem>
                 <SelectItem value="false">Failed</SelectItem>
               </SelectContent>
@@ -369,7 +417,23 @@ export function SessionLogsTable() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Waktu</TableHead>
+                  <TableHead>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={handleSortToggle}
+                      className="h-auto p-0 font-medium hover:bg-transparent"
+                    >
+                      <div className="flex items-center gap-1">
+                        Waktu
+                        {sortOrder === 'desc' ? (
+                          <ArrowDownIcon className="h-4 w-4" />
+                        ) : (
+                          <ArrowUpIcon className="h-4 w-4" />
+                        )}
+                      </div>
+                    </Button>
+                  </TableHead>
                   <TableHead>User</TableHead>
                   <TableHead>Action</TableHead>
                   <TableHead>Status</TableHead>
@@ -380,14 +444,14 @@ export function SessionLogsTable() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {currentSessions.length === 0 ? (
+                {currentSessionLogs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Tidak ada data session logs
                     </TableCell>
                   </TableRow>
                 ) : (
-                  currentSessions.map((session) => (
+                  currentSessionLogs.map((session) => (
                     <TableRow key={session.id}>
                       <TableCell className="font-mono text-xs">
                         {formatDate(session.createdAt)}
@@ -456,7 +520,10 @@ export function SessionLogsTable() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
               <div className="text-sm text-muted-foreground">
-                Menampilkan {startIndex + 1}-{Math.min(endIndex, sessions.length)} dari {sessions.length} data
+                Menampilkan {startIndex + 1}-{Math.min(endIndex, sortedSessionLogs.length)} dari {sortedSessionLogs.length} data
+                <span className="ml-2 text-xs text-muted-foreground/70">
+                  (Diurutkan: {sortOrder === 'desc' ? 'Terbaru → Terlama' : 'Terlama → Terbaru'})
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <Button

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/shadcn/ui/button"
 import { Badge } from "@/components/shadcn/ui/badge"
 import {
@@ -20,113 +21,28 @@ import {
 } from "@/components/shadcn/ui/table"
 import { IconEdit, IconUsers, IconCheck, IconX } from "@tabler/icons-react"
 
-// Mock data untuk role detail
-const mockRoleDetails = {
-  "1": {
-    id: "1",
-    name: "Admin",
-    description: "Full system administrator access",
-    grantsAll: true,
-    userCount: 3,
-    createdAt: "2024-01-15",
-    updatedAt: "2024-01-20",
-    features: [
-      {
-        id: "1",
-        name: "User Management",
-        description: "Manage users and their permissions",
-        canCreate: true,
-        canRead: true,
-        canUpdate: true,
-        canDelete: true
-      },
-      {
-        id: "2",
-        name: "Role Management",
-        description: "Manage roles and permissions",
-        canCreate: true,
-        canRead: true,
-        canUpdate: true,
-        canDelete: true
-      },
-      {
-        id: "3",
-        name: "System Settings",
-        description: "Configure system-wide settings",
-        canCreate: true,
-        canRead: true,
-        canUpdate: true,
-        canDelete: false
-      }
-    ]
-  },
-  "2": {
-    id: "2",
-    name: "Editor",
-    description: "Content management and editing permissions",
-    grantsAll: false,
-    userCount: 8,
-    createdAt: "2024-01-16",
-    updatedAt: "2024-01-18",
-    features: [
-      {
-        id: "4",
-        name: "Content Management",
-        description: "Create and edit content",
-        canCreate: true,
-        canRead: true,
-        canUpdate: true,
-        canDelete: false
-      },
-      {
-        id: "5",
-        name: "Media Library",
-        description: "Manage media files",
-        canCreate: true,
-        canRead: true,
-        canUpdate: true,
-        canDelete: true
-      },
-      {
-        id: "6",
-        name: "Reports",
-        description: "View content reports",
-        canCreate: false,
-        canRead: true,
-        canUpdate: false,
-        canDelete: false
-      }
-    ]
-  },
-  "3": {
-    id: "3",
-    name: "Viewer",
-    description: "Read-only access to system resources",
-    grantsAll: false,
-    userCount: 15,
-    createdAt: "2024-01-17",
-    updatedAt: "2024-01-17",
-    features: [
-      {
-        id: "7",
-        name: "Dashboard",
-        description: "View dashboard and analytics",
-        canCreate: false,
-        canRead: true,
-        canUpdate: false,
-        canDelete: false
-      },
-      {
-        id: "8",
-        name: "Reports",
-        description: "View system reports",
-        canCreate: false,
-        canRead: true,
-        canUpdate: false,
-        canDelete: false
-      }
-    ]
-  }
+// Interface untuk role detail
+interface RoleFeature {
+  id: string
+  featureId: number
+  name: string
+  description: string
+  category: string
+  canCreate: boolean
+  canRead: boolean
+  canUpdate: boolean
+  canDelete: boolean
+}
+
+interface RoleDetail {
+  id: number
+  name: string
+  description: string | null
+  grants_all: boolean
+  created_at: string
+  updated_at: string
+  userCount?: number
+  features: RoleFeature[]
 }
 
 interface RoleDetailTabProps {
@@ -140,23 +56,72 @@ interface RoleDetailTabProps {
  * Menampilkan informasi role dan fitur-fitur yang dimilikinya via RoleFeature
  */
 export function RoleDetailTab({ roleId, onEdit, onUserMapping }: RoleDetailTabProps) {
-  const [roleDetail, setRoleDetail] = useState<any>(null)
+  const { accessToken, isAuthenticated } = useAuth()
+  const [roleDetail, setRoleDetail] = useState<RoleDetail | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  /**
+   * Fetch role detail dari API
+   */
+  const fetchRoleDetail = async (id: string) => {
+    if (!isAuthenticated || !accessToken) return
+
+    try {
+      setLoading(true)
+      setError(null)
+
+      // Fetch role basic info
+      const roleResponse = await fetch(`/api/roles/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      })
+
+      if (!roleResponse.ok) {
+        throw new Error('Failed to fetch role details')
+      }
+
+      const roleData = await roleResponse.json()
+      console.log('Role data:', roleData)
+
+      // Fetch role features
+      const featuresResponse = await fetch(`/api/roles/${id}/features`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      })
+
+      let features: RoleFeature[] = []
+      if (featuresResponse.ok) {
+        const featuresData = await featuresResponse.json()
+        console.log('Features data:', featuresData)
+        features = featuresData.data?.features || []
+      }
+
+      // Combine data
+      const combinedData: RoleDetail = {
+        ...roleData.data.role,
+        features,
+        userCount: 0 // TODO: Implement user count API
+      }
+
+      setRoleDetail(combinedData)
+    } catch (err) {
+      console.error('Error fetching role detail:', err)
+      setError(err instanceof Error ? err.message : 'Failed to fetch role details')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   /**
    * Load role detail berdasarkan roleId
    */
   useEffect(() => {
-    if (!roleId) return
-
-    setLoading(true)
-    // Simulasi API call
-    setTimeout(() => {
-      const detail = mockRoleDetails[roleId as keyof typeof mockRoleDetails]
-      setRoleDetail(detail || null)
-      setLoading(false)
-    }, 500)
-  }, [roleId])
+    if (!roleId || !isAuthenticated || !accessToken) return
+    fetchRoleDetail(roleId)
+  }, [roleId, isAuthenticated, accessToken])
 
   /**
    * Render CRUD permission badges
@@ -220,6 +185,16 @@ export function RoleDetailTab({ roleId, onEdit, onUserMapping }: RoleDetailTabPr
     )
   }
 
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center h-64">
+          <p className="text-red-500">{error}</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   if (!roleDetail) {
     return (
       <Card>
@@ -239,9 +214,9 @@ export function RoleDetailTab({ roleId, onEdit, onUserMapping }: RoleDetailTabPr
             <div>
               <CardTitle className="flex items-center gap-2">
                 {roleDetail.name}
-                {renderGrantsAllBadge(roleDetail.grantsAll)}
+                {renderGrantsAllBadge(roleDetail.grants_all)}
               </CardTitle>
-              <CardDescription>{roleDetail.description}</CardDescription>
+              <CardDescription>{roleDetail.description || 'No description available'}</CardDescription>
             </div>
             <div className="flex gap-2">
               <Button onClick={onEdit}>
@@ -260,13 +235,13 @@ export function RoleDetailTab({ roleId, onEdit, onUserMapping }: RoleDetailTabPr
             <div>
               <span className="font-medium">Created:</span>
               <span className="ml-2 text-muted-foreground">
-                {new Date(roleDetail.createdAt).toLocaleDateString()}
+                {new Date(roleDetail.created_at).toLocaleDateString()}
               </span>
             </div>
             <div>
               <span className="font-medium">Last Updated:</span>
               <span className="ml-2 text-muted-foreground">
-                {new Date(roleDetail.updatedAt).toLocaleDateString()}
+                {new Date(roleDetail.updated_at).toLocaleDateString()}
               </span>
             </div>
           </div>
@@ -282,7 +257,7 @@ export function RoleDetailTab({ roleId, onEdit, onUserMapping }: RoleDetailTabPr
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {roleDetail.grantsAll ? (
+          {roleDetail.grants_all ? (
             <div className="text-center py-8">
               <Badge variant="default" className="text-lg px-4 py-2">
                 All Features Granted
@@ -320,7 +295,7 @@ export function RoleDetailTab({ roleId, onEdit, onUserMapping }: RoleDetailTabPr
             </div>
           )}
 
-          {!roleDetail.grantsAll && roleDetail.features.length === 0 && (
+          {!roleDetail.grants_all && roleDetail.features.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               No features assigned to this role.
             </div>

@@ -4,6 +4,25 @@ import { createCorsHandler } from './middleware/cors/corsHandler';
 
 
 /**
+ * Fungsi helper untuk mendeteksi apakah request berasal dari browser
+ * @param request - NextRequest object
+ * @returns boolean - true jika browser request
+ */
+function isBrowserRequest(request: NextRequest): boolean {
+  const acceptHeader = request.headers.get('accept') || '';
+  const userAgent = request.headers.get('user-agent') || '';
+  
+  // Deteksi browser berdasarkan Accept header yang mengandung text/html
+  const isBrowser = acceptHeader.includes('text/html');
+  
+  // Deteksi API request berdasarkan Content-Type atau Accept header
+  const isApiRequest = acceptHeader.includes('application/json') || 
+                      request.headers.get('content-type')?.includes('application/json');
+  
+  return isBrowser && !isApiRequest;
+}
+
+/**
  * Main middleware function untuk route-level authorization
  * Menggunakan refactored middleware dengan prinsip SOLID dan DRY
  * @param request - NextRequest object
@@ -29,6 +48,14 @@ export default async function middleware(request: NextRequest) {
     
     // Handle result dari middleware
     if (result instanceof NextResponse) {
+      // Jika response adalah error 401 dan request dari browser, redirect ke login
+      if (result.status === 401 && isBrowserRequest(request)) {
+        const loginUrl = new URL('/login', request.url);
+        // Tambahkan redirect parameter untuk kembali ke halaman asal setelah login
+        loginUrl.searchParams.set('redirect', request.nextUrl.pathname);
+        console.log('🔒 Browser request unauthorized, redirecting to login:', loginUrl.toString());
+        return NextResponse.redirect(loginUrl);
+      }
       return result;
     }
     
@@ -44,6 +71,14 @@ export default async function middleware(request: NextRequest) {
     return corsHandler.handleCorsRequest(request, response);
   } catch (error) {
     console.error('Middleware error:', error);
+    
+    // Untuk browser requests, redirect ke login jika terjadi error auth
+    if (isBrowserRequest(request)) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', request.nextUrl.pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    
     return NextResponse.json(
       { success: false, message: 'Terjadi kesalahan pada server' },
       { status: 500 }

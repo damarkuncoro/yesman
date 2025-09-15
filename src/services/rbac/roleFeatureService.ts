@@ -111,6 +111,22 @@ export class RoleFeatureService {
     const permission = await roleFeatureRepository.findByRoleAndFeature(roleId, featureId);
     return permission || null;
   }
+
+  /**
+   * Mengambil semua permission untuk role tertentu dengan detail feature
+   * @param roleId - ID role
+   * @returns Promise<any[]> - Array permission role dengan detail feature
+   * @throws RBACError jika role tidak ditemukan
+   */
+  async getRolePermissionsWithFeatures(roleId: number): Promise<any[]> {
+    // Cek apakah role ada
+    const role = await roleRepository.findById(roleId);
+    if (!role) {
+      throw new RBACError(`Role dengan ID ${roleId} tidak ditemukan`);
+    }
+
+    return await roleFeatureRepository.findByRoleIdWithFeatures(roleId);
+  }
 }
 
 // Export instance untuk digunakan di aplikasi

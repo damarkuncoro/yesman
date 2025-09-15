@@ -2,10 +2,10 @@
 
 import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shadcn/ui/tabs"
-import { AccessLogsTable } from "@/components/dashboard/audit/AccessLogsTable"
-import { PolicyViolationLogsTable } from "@/components/dashboard/audit/PolicyViolationLogsTable"
-import { ChangeHistoryTable } from "@/components/dashboard/audit/ChangeHistoryTable"
-import { SessionLogsTable } from "@/components/dashboard/audit/SessionLogsTable"
+import { AccessLogsTable } from "./access-logs-table"
+import { PolicyViolationLogsTable } from "./policy-violation-logs-table"
+import { ChangeHistoryTable } from "./change-history-table"
+import { SessionLogsTable } from "./session-logs-table"
 
 /**
  * Komponen tabs untuk Audit & Monitoring

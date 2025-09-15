@@ -7,9 +7,11 @@ import { Badge } from "@/components/shadcn/ui/badge";
 import { Button } from "@/components/shadcn/ui/button";
 import { Input } from "@/components/shadcn/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shadcn/ui/select";
-import { HistoryIcon, FilterIcon, RefreshCwIcon, UserIcon, ShieldIcon } from "lucide-react";
+import { HistoryIcon, FilterIcon, RefreshCwIcon, UserIcon, FileTextIcon, ShieldIcon } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ChangeHistory {
   id: number;
@@ -41,15 +43,17 @@ interface ChangeHistoryStats {
  * Menampilkan siapa mengubah role/policy, kapan, dan perubahan apa
  */
 export function ChangeHistoryTable() {
-  const [changes, setChanges] = useState<ChangeHistory[]>([]);
+  const [changeHistory, setChangeHistory] = useState<ChangeHistory[]>([]);
   const [stats, setStats] = useState<ChangeHistoryStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  const { accessToken } = useAuth();
+  
   // Filter states
   const [filters, setFilters] = useState({
-    entityType: '',
-    action: '',
+    entityType: 'all',
+    action: 'all',
     changedBy: '',
     entityId: ''
   });
@@ -61,31 +65,53 @@ export function ChangeHistoryTable() {
    * Mengambil data change history dari API
    */
   const fetchChangeHistory = async () => {
+    if (!accessToken) {
+      toast.error('Token akses tidak tersedia');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       
       // Build query parameters
       const params = new URLSearchParams();
-      if (filters.entityType) params.append('entityType', filters.entityType);
-      if (filters.action) params.append('action', filters.action);
+      if (filters.entityType && filters.entityType !== 'all') params.append('entityType', filters.entityType);
+      if (filters.action && filters.action !== 'all') params.append('action', filters.action);
       if (filters.changedBy) params.append('changedBy', filters.changedBy);
       if (filters.entityId) params.append('entityId', filters.entityId);
       
       const queryString = params.toString();
       const url = `/api/audit/change-history${queryString ? `?${queryString}` : ''}`;
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const result = await response.json();
+      
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(result.message || 'Gagal mengambil data change history');
       }
       
-      const data = await response.json();
-      setChanges(data.changes || []);
-      setStats(data.stats || null);
+      if (result.success && result.data) {
+        setChangeHistory(result.data.changes || []);
+        setStats(result.data.stats || null);
+      } else {
+        throw new Error('Format response tidak valid');
+      }
     } catch (err) {
       console.error('Error fetching change history:', err);
-      setError(err instanceof Error ? err.message : 'Terjadi kesalahan saat mengambil data');
+      const errorMessage = err instanceof Error ? err.message : 'Terjadi kesalahan saat mengambil data';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      setChangeHistory([]);
+      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -111,8 +137,8 @@ export function ChangeHistoryTable() {
    */
   const handleResetFilters = () => {
     setFilters({
-      entityType: '',
-      action: '',
+      entityType: 'all',
+      action: 'all',
       changedBy: '',
       entityId: ''
     });
@@ -199,10 +225,10 @@ export function ChangeHistoryTable() {
   };
 
   // Pagination logic
-  const totalPages = Math.ceil(changes.length / itemsPerPage);
+  const totalPages = Math.ceil(changeHistory.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentChanges = changes.slice(startIndex, endIndex);
+  const currentChangeHistory = changeHistory.slice(startIndex, endIndex);
 
   if (loading) {
     return (
@@ -266,7 +292,7 @@ export function ChangeHistoryTable() {
           <Card>
             <CardContent className="p-4">
               <div className="text-sm space-y-1">
-                {Object.entries(stats.byAction).map(([action, count]) => (
+                {Object.entries(stats.byAction || {}).map(([action, count]) => (
                   <div key={action} className="flex justify-between">
                     <span className="capitalize">{action}:</span>
                     <span className="font-medium">{count}</span>
@@ -279,7 +305,7 @@ export function ChangeHistoryTable() {
           <Card>
             <CardContent className="p-4">
               <div className="text-sm space-y-1">
-                {Object.entries(stats.byEntityType).map(([type, count]) => (
+                {Object.entries(stats.byEntityType || {}).map(([type, count]) => (
                   <div key={type} className="flex justify-between">
                     <span className="capitalize">{type}:</span>
                     <span className="font-medium">{count}</span>
@@ -324,7 +350,7 @@ export function ChangeHistoryTable() {
                 <SelectValue placeholder="Entity Type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Semua</SelectItem>
+                <SelectItem value="all">Semua</SelectItem>
                 <SelectItem value="user">User</SelectItem>
                 <SelectItem value="role">Role</SelectItem>
                 <SelectItem value="policy">Policy</SelectItem>
@@ -337,7 +363,7 @@ export function ChangeHistoryTable() {
                 <SelectValue placeholder="Action" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Semua</SelectItem>
+                <SelectItem value="all">Semua</SelectItem>
                 <SelectItem value="create">Create</SelectItem>
                 <SelectItem value="update">Update</SelectItem>
                 <SelectItem value="delete">Delete</SelectItem>
@@ -378,14 +404,14 @@ export function ChangeHistoryTable() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {currentChanges.length === 0 ? (
+                {currentChangeHistory.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       Tidak ada data change history
                     </TableCell>
                   </TableRow>
                 ) : (
-                  currentChanges.map((change) => (
+                  currentChangeHistory.map((change) => (
                     <TableRow key={change.id}>
                       <TableCell className="font-mono text-xs">
                         {formatDate(change.createdAt)}
@@ -434,7 +460,7 @@ export function ChangeHistoryTable() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
               <div className="text-sm text-muted-foreground">
-                Menampilkan {startIndex + 1}-{Math.min(endIndex, changes.length)} dari {changes.length} data
+                Menampilkan {startIndex + 1}-{Math.min(endIndex, changeHistory.length)} dari {changeHistory.length} data
               </div>
               <div className="flex items-center gap-2">
                 <Button

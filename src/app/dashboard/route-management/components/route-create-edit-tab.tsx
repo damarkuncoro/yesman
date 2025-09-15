@@ -36,11 +36,13 @@ import {
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface Feature {
-  id: string;
+  id: number;
   name: string;
-  description: string;
+  description?: string;
   isActive: boolean;
 }
 
@@ -63,16 +65,16 @@ interface RouteCreateEditTabProps {
 // Schema validasi form menggunakan Zod
 const routeFormSchema = z.object({
   path: z.string().min(1, "Path harus diisi").regex(/^\//, "Path harus dimulai dengan /"),
-  method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH"]),
+  method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH"]).nullable(),
   featureId: z.string().min(1, "Feature harus dipilih"),
-  description: z.string().min(1, "Deskripsi harus diisi"),
+  description: z.string().optional(),
   isActive: z.boolean().default(true),
-  roleIds: z.array(z.string()).min(1, "Minimal satu role harus dipilih"),
+  roleIds: z.array(z.string()).optional(),
   policies: z.array(z.object({
     name: z.string().min(1, "Nama policy harus diisi"),
     type: z.enum(["allow", "deny"]),
     conditions: z.array(z.string())
-  }))
+  })).optional()
 });
 
 type RouteFormValues = z.infer<typeof routeFormSchema>;
@@ -95,18 +97,19 @@ export function RouteCreateEditTab({
   const [isSaving, setIsSaving] = useState(false);
 
   const isEditMode = propIsEditMode ?? !!routeId;
+  const { accessToken } = useAuth();
 
   // Setup form dengan react-hook-form dan validasi Zod
   const form = useForm({
     resolver: zodResolver(routeFormSchema),
     defaultValues: {
       path: "",
-      method: "GET",
+      method: "GET" as "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | null,
       featureId: "",
       description: "",
       isActive: true,
-      roleIds: [],
-      policies: []
+      roleIds: [] as string[],
+      policies: [] as Array<{name: string; type: "allow" | "deny"; conditions: string[]}>
     }
   });
 
@@ -114,7 +117,7 @@ export function RouteCreateEditTab({
    * Update policy
    */
   const updatePolicy = (index: number, field: string, value: any) => {
-    const currentPolicies = form.getValues("policies");
+    const currentPolicies = form.getValues("policies") || [];
     const updatedPolicies = [...currentPolicies];
     updatedPolicies[index] = { ...updatedPolicies[index], [field]: value };
     form.setValue("policies", updatedPolicies);
@@ -124,7 +127,7 @@ export function RouteCreateEditTab({
    * Add policy condition
    */
   const addPolicyCondition = (policyIndex: number) => {
-    const currentPolicies = form.getValues("policies");
+    const currentPolicies = form.getValues("policies") || [];
     const updatedPolicies = [...currentPolicies];
     updatedPolicies[policyIndex].conditions.push("");
     form.setValue("policies", updatedPolicies);
@@ -134,7 +137,7 @@ export function RouteCreateEditTab({
    * Update policy condition
    */
   const updatePolicyCondition = (policyIndex: number, conditionIndex: number, value: string) => {
-    const currentPolicies = form.getValues("policies");
+    const currentPolicies = form.getValues("policies") || [];
     const updatedPolicies = [...currentPolicies];
     updatedPolicies[policyIndex].conditions[conditionIndex] = value;
     form.setValue("policies", updatedPolicies);
@@ -144,7 +147,7 @@ export function RouteCreateEditTab({
    * Remove policy condition
    */
   const removePolicyCondition = (policyIndex: number, conditionIndex: number) => {
-    const currentPolicies = form.getValues("policies");
+    const currentPolicies = form.getValues("policies") || [];
     const updatedPolicies = [...currentPolicies];
     updatedPolicies[policyIndex].conditions.splice(conditionIndex, 1);
     form.setValue("policies", updatedPolicies);
@@ -155,110 +158,126 @@ export function RouteCreateEditTab({
    */
   useEffect(() => {
     const loadData = async () => {
+      if (!accessToken) return;
+      
       setIsLoading(true);
       try {
-        // Simulasi API call untuk features
-        const dummyFeatures: Feature[] = [
-          {
-            id: "user_management",
-            name: "User Management",
-            description: "Manage users and user data",
-            isActive: true,
+        // Fetch features dari API
+        const featuresResponse = await fetch('/api/rbac/features', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
           },
-          {
-            id: "role_management",
-            name: "Role Management",
-            description: "Manage roles and permissions",
-            isActive: true,
-          },
-          {
-            id: "feature_management",
-            name: "Feature Management",
-            description: "Manage application features",
-            isActive: true,
-          },
-          {
-            id: "route_management",
-            name: "Route Management",
-            description: "Manage API routes and access",
-            isActive: true,
-          },
-        ];
+        });
 
-        // Simulasi API call untuk roles
-        const dummyRoles: Role[] = [
-          {
-            id: "admin",
-            name: "Administrator",
-            description: "Full system access",
-            userCount: 5,
-          },
-          {
-            id: "manager",
-            name: "Manager",
-            description: "Management level access",
-            userCount: 12,
-          },
-          {
-            id: "user",
-            name: "Regular User",
-            description: "Standard user access",
-            userCount: 150,
-          },
-          {
-            id: "guest",
-            name: "Guest",
-            description: "Limited access",
-            userCount: 0,
-          },
-        ];
+        if (featuresResponse.ok) {
+          const featuresData = await featuresResponse.json();
+          if (featuresData.success) {
+            setFeatures(featuresData.data);
+          }
+        }
 
-        setFeatures(dummyFeatures);
-        setRoles(dummyRoles);
+        // Fetch roles dari API
+        const rolesResponse = await fetch('/api/rbac/roles', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (rolesResponse.ok) {
+          const rolesData = await rolesResponse.json();
+          if (rolesData.success) {
+            setRoles(rolesData.data);
+          }
+        }
 
         // Jika edit mode, load data route
         if (isEditMode && routeId) {
-          // Simulasi load route data
-          const routeData = {
-            path: "/api/users/:id",
-            method: "GET" as const,
-            featureId: "user_management",
-            description: "Get user by ID with detailed information",
-            isActive: true,
-            roleIds: ["admin", "manager", "user"],
-            policies: [
-              {
-                name: "User Access Policy",
-                type: "allow" as const,
-                conditions: ["authenticated", "user_scope"],
-              },
-            ],
-          };
-          
-          form.reset(routeData);
+          const routeResponse = await fetch(`/api/rbac/route-features/${routeId}`, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (routeResponse.ok) {
+            const routeData = await routeResponse.json();
+            if (routeData.success) {
+              const route = routeData.data;
+              form.reset({
+                path: route.path,
+                method: route.method || undefined,
+                featureId: route.featureId.toString(),
+                description: route.description || "",
+                isActive: true,
+                roleIds: [],
+                policies: []
+              });
+            }
+          }
         }
       } catch (error) {
         console.error("Error loading data:", error);
+        toast.error("Gagal memuat data form");
       } finally {
         setIsLoading(false);
       }
     };
 
     loadData();
-  }, [routeId, isEditMode, form]);
+  }, [routeId, isEditMode, form, accessToken]);
 
   // Handler untuk submit form
-  const onSubmit = async (values: any) => {
+  const onSubmit = async (values: RouteFormValues) => {
+    if (!accessToken) {
+      toast.error("Tidak ada token autentikasi");
+      return;
+    }
+
     setIsSaving(true);
     try {
-      // Simulasi API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const url = isEditMode 
+        ? `/api/rbac/route-features/${routeId}`
+        : '/api/rbac/route-features';
       
-      console.log("Route data:", values);
-      onSave?.(values);
+      const method = isEditMode ? 'PUT' : 'POST';
+      
+      const requestBody = {
+        path: values.path,
+        method: values.method,
+        featureId: parseInt(values.featureId),
+        description: values.description || undefined,
+      };
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save route feature');
+      }
+
+      toast.success(
+        isEditMode 
+          ? 'Route feature berhasil diupdate' 
+          : 'Route feature berhasil dibuat'
+      );
       onSuccess?.();
     } catch (error) {
       console.error("Error saving route:", error);
+      toast.error(
+        error instanceof Error 
+          ? error.message 
+          : 'Gagal menyimpan route feature'
+      );
     } finally {
       setIsSaving(false);
     }
@@ -268,7 +287,7 @@ export function RouteCreateEditTab({
    * Add new policy
    */
   const addPolicy = () => {
-    const currentPolicies = form.getValues("policies");
+    const currentPolicies = form.getValues("policies") || [];
     form.setValue("policies", [
       ...currentPolicies,
       {
@@ -283,7 +302,7 @@ export function RouteCreateEditTab({
    * Remove policy
    */
   const removePolicy = (index: number) => {
-    const currentPolicies = form.getValues("policies");
+    const currentPolicies = form.getValues("policies") || [];
     form.setValue(
       "policies",
       currentPolicies.filter((_, i) => i !== index)
@@ -361,7 +380,7 @@ export function RouteCreateEditTab({
                       <FormLabel>HTTP Method</FormLabel>
                       <Select
                         onValueChange={field.onChange}
-                        defaultValue={field.value}
+                        defaultValue={field.value || undefined}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -433,7 +452,7 @@ export function RouteCreateEditTab({
                         {features
                           .filter((feature) => feature.isActive)
                           .map((feature) => (
-                            <SelectItem key={feature.id} value={feature.id}>
+                            <SelectItem key={feature.id} value={feature.id.toString()}>
                               <div>
                                 <p className="font-medium">{feature.name}</p>
                                 <p className="text-sm text-muted-foreground">
@@ -521,18 +540,19 @@ export function RouteCreateEditTab({
                                 className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"
                               >
                                 <FormControl>
-                                  <Checkbox
-                                    checked={field.value?.includes(role.id)}
-                                    onCheckedChange={(checked) => {
-                                      return checked
-                                        ? field.onChange([...field.value, role.id])
-                                        : field.onChange(
-                                            field.value?.filter(
-                                              (value) => value !== role.id
-                                            )
-                                          );
-                                    }}
-                                  />
+                      <Checkbox
+                        checked={field.value?.includes(role.id.toString()) || false}
+                        onCheckedChange={(checked) => {
+                          const currentValue = field.value || [];
+                          return checked
+                            ? field.onChange([...currentValue, role.id.toString()])
+                            : field.onChange(
+                                currentValue.filter(
+                                  (value) => value !== role.id.toString()
+                                )
+                              );
+                        }}
+                      />
                                 </FormControl>
                                 <div className="space-y-1 leading-none">
                                   <FormLabel className="font-medium">
@@ -571,7 +591,7 @@ export function RouteCreateEditTab({
                 render={({ field }) => (
                   <FormItem>
                     <div className="space-y-2">
-                      {field.value.map((policy, index) => (
+                      {(field.value || []).map((policy, index) => (
                         <div
                           key={index}
                           className="flex items-center justify-between p-3 border rounded-lg"
