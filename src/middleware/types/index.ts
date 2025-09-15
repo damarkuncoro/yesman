@@ -59,8 +59,12 @@ export interface MiddlewareHandler {
  */
 export interface RouteMatcher {
   isPublicRoute(pathname: string): boolean;
+  isPublicApiRoute(pathname: string): boolean;
+  isPublicWebRoute(pathname: string): boolean;
   shouldSkipMiddleware(pathname: string): boolean;
   getActionFromMethod(method: string): ActionType;
+  getPublicApiRoutes(): string[];
+  getPublicWebRoutes(): string[];
 }
 
 /**

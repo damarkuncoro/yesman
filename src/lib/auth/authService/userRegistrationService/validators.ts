@@ -103,7 +103,7 @@ export class UserRegistrationValidator {
     
     if (existingUser) {
       logUserRegistration.validation(email, 'email', ERROR_MESSAGES.VALIDATION.EMAIL_EXISTS);
-      throw new ConflictError(ERROR_MESSAGES.VALIDATION.EMAIL_EXISTS);
+      throw new ConflictError('User', 'email', email, { existingUserId: existingUser.id });
     }
   }
 
@@ -166,6 +166,93 @@ export class UserRegistrationValidator {
    */
   private isValidEmailFormat(email: string): boolean {
     return VALIDATION_RULES.EMAIL.PATTERN.test(email);
+  }
+
+  /**
+   * Register user baru dengan validasi lengkap
+   * @param userData - Data user yang akan diregistrasi
+   * @param currentUser - User yang melakukan registrasi (untuk permission check)
+   * @returns Promise<UserResponse> - Data user yang berhasil dibuat
+   */
+  async registerUser(userData: UserCreateData, currentUser: any): Promise<any> {
+    try {
+      // Validasi data registrasi
+      await this.validateRegistrationData(userData);
+      
+      // Check email availability
+      await this.checkEmailAvailability(userData.email);
+      
+      // Validasi role jika ada
+      if (userData.roleId) {
+        await this.validateRole(userData.roleId);
+      }
+      
+      // Validasi department dan region
+      this.validateDepartmentAndRegion(userData.department, userData.region);
+      
+      // Validasi level
+      this.validateLevel(userData.level);
+      
+      // Hash password
+      const hashedPassword = await this.passwordService.hashPassword(userData.password);
+      
+      // Siapkan data untuk database
+      const userDataToCreate = {
+        name: userData.name,
+        email: userData.email,
+        passwordHash: hashedPassword,
+        department: userData.department || null,
+        region: userData.region || null,
+        level: userData.level || null,
+        active: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      // Buat user di database
+      const newUser = await this.userRepository.create(userDataToCreate);
+      
+      // Assign default role jika tidak ada role yang ditentukan
+      let assignedRole = null;
+      if (userData.roleId) {
+        assignedRole = await this.roleRepository.findById(userData.roleId);
+      } else {
+        // Assign default role 'USER'
+        const defaultRole = await this.roleRepository.findByName('USER');
+        if (defaultRole) {
+          // Assign role ke user (implementasi tergantung struktur database)
+          assignedRole = defaultRole;
+        }
+      }
+      
+      // Log successful registration
+       logUserRegistration.success(
+         userData.email,
+         newUser.id.toString()
+       );
+      
+      // Return user response
+      return {
+        id: newUser.id.toString(),
+        name: newUser.name,
+        email: newUser.email,
+        department: newUser.department,
+        region: newUser.region,
+        level: newUser.level,
+        role: assignedRole?.name || 'USER',
+        createdAt: newUser.createdAt
+      };
+      
+    } catch (error) {
+      // Log failed registration
+       logUserRegistration.failed(
+         userData.email,
+         error instanceof Error ? error.message : 'Unknown error',
+         'unknown'
+       );
+      
+      throw error;
+    }
   }
 }
 

@@ -23,6 +23,12 @@ export class UserAuthenticationRateLimiter {
    * @throws AuthenticationError jika terlalu banyak percobaan
    */
   checkRateLimit(email: string): void {
+    // Disable rate limiting dalam mode development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔓 Rate limiting disabled in development mode for:', email);
+      return;
+    }
+
     const attempts = this.loginAttempts.get(email.toLowerCase());
     
     if (attempts) {
@@ -49,6 +55,12 @@ export class UserAuthenticationRateLimiter {
    * @param email - Email yang gagal login
    */
   recordFailedAttempt(email: string): void {
+    // Skip recording dalam mode development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔓 Failed attempt recording skipped in development mode for:', email);
+      return;
+    }
+
     const emailKey = email.toLowerCase();
     const attempts = this.loginAttempts.get(emailKey) || { count: 0, lastAttempt: new Date() };
     

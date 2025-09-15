@@ -1,0 +1,868 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YesMan API Test Results</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { text-align: center; margin-bottom: 30px; }
+        .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .metric { background: #f8f9fa; padding: 15px; border-radius: 6px; text-align: center; }
+        .metric-value { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+        .metric-label { color: #666; font-size: 14px; }
+        .passed { color: #28a745; }
+        .failed { color: #dc3545; }
+        .error { color: #fd7e14; }
+        .suite { margin-bottom: 20px; border: 1px solid #dee2e6; border-radius: 6px; }
+        .suite-header { background: #e9ecef; padding: 15px; font-weight: bold; }
+        .suite-content { padding: 15px; }
+        .test-item { padding: 8px 0; border-bottom: 1px solid #f1f3f4; }
+        .test-item:last-child { border-bottom: none; }
+        .status-pass { color: #28a745; }
+        .status-fail { color: #dc3545; }
+        .status-error { color: #fd7e14; }
+        .progress-bar { width: 100%; height: 20px; background: #e9ecef; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #28a745, #20c997); transition: width 0.3s ease; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 YesMan API Test Results</h1>
+            <p>Generated on: 2025-09-15T07:08:05.951Z</p>
+            <p>Duration: 12.95 seconds</p>
+        </div>
+        
+        <div class="summary">
+            <div class="metric">
+                <div class="metric-value">81</div>
+                <div class="metric-label">Total Tests</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value passed">7</div>
+                <div class="metric-label">Passed</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value failed">73</div>
+                <div class="metric-label">Failed</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value error">1</div>
+                <div class="metric-label">Errors</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value">8.64%</div>
+                <div class="metric-label">Success Rate</div>
+            </div>
+        </div>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: 8.64%"></div>
+        </div>
+        
+        <div class="suites">
+            
+                <div class="suite">
+                    <div class="suite-header">
+                        ✅ Authentication
+                        <span style="float: right;">0.16s</span>
+                    </div>
+                    <div class="suite-content">
+                        
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                User Registration
+                                <br><small style="color: #666;">Error: Registration failed: Unknown error</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                User Login
+                                <br><small style="color: #666;">Error: Login failed: Unknown error</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Token Validation
+                                <br><small style="color: #666;">Error: No auth token available for validation</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Token Refresh
+                                <br><small style="color: #666;">Error: No refresh token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-pass">
+                                    ✅
+                                </span>
+                                Invalid Login
+                                
+                                <br><small style="color: #666;">Invalid login correctly rejected</small>
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                User Logout
+                                <br><small style="color: #666;">Error: No auth token available for logout</small>
+                                
+                            </div>
+                        
+                    </div>
+                </div>
+            
+                <div class="suite">
+                    <div class="suite-header">
+                        ❌ User Management
+                        <span style="float: right;">0.00s</span>
+                    </div>
+                    <div class="suite-content">
+                        <p class="error">Error: SuiteClass is not a constructor</p>
+                        
+                    </div>
+                </div>
+            
+                <div class="suite">
+                    <div class="suite-header">
+                        ✅ RBAC (Role-Based Access Control)
+                        <span style="float: right;">0.03s</span>
+                    </div>
+                    <div class="suite-content">
+                        
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Admin Login Setup
+                                <br><small style="color: #666;">Error: Admin login failed: Unknown error</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get All Roles
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Role by ID
+                                <br><small style="color: #666;">Error: No admin token or test role ID available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Role Features
+                                <br><small style="color: #666;">Error: No admin token or test role ID available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get All Features
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Feature by ID
+                                <br><small style="color: #666;">Error: No admin token or test feature ID available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Feature Routes
+                                <br><small style="color: #666;">Error: No admin token or test feature ID available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get All Route Features
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Route Feature by ID
+                                <br><small style="color: #666;">Error: No admin token or test route feature ID available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-pass">
+                                    ✅
+                                </span>
+                                Unauthorized Access
+                                
+                                <br><small style="color: #666;">Unauthorized access correctly rejected</small>
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Invalid Role ID
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Invalid Feature ID
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                    </div>
+                </div>
+            
+                <div class="suite">
+                    <div class="suite-header">
+                        ✅ ABAC (Attribute-Based Access Control)
+                        <span style="float: right;">0.04s</span>
+                    </div>
+                    <div class="suite-content">
+                        
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Admin Login Setup
+                                <br><small style="color: #666;">Error: Admin login failed: Unknown error</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get All Policies
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Policy by ID
+                                <br><small style="color: #666;">Error: No admin token or test policy ID available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Policy Rules
+                                <br><small style="color: #666;">Error: No admin token or test policy ID available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Evaluate Policy
+                                <br><small style="color: #666;">Error: No admin token or test policy ID available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get All Attributes
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Attribute by ID
+                                <br><small style="color: #666;">Error: No admin token or test attribute ID available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Attributes by Category
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get User Attributes
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Batch Policy Evaluation
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-pass">
+                                    ✅
+                                </span>
+                                Unauthorized Access
+                                
+                                <br><small style="color: #666;">Unauthorized access correctly rejected</small>
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Invalid Policy ID
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Invalid Attribute ID
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Invalid Evaluation Context
+                                <br><small style="color: #666;">Error: No admin token or test policy ID available</small>
+                                
+                            </div>
+                        
+                    </div>
+                </div>
+            
+                <div class="suite">
+                    <div class="suite-header">
+                        ✅ Audit Logging
+                        <span style="float: right;">0.04s</span>
+                    </div>
+                    <div class="suite-content">
+                        
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Admin Login Setup
+                                <br><small style="color: #666;">Error: Admin login failed: Unknown error</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get All Audit Logs
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Audit Log by ID
+                                <br><small style="color: #666;">Error: No admin token or test audit ID available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Audit Logs with Pagination
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Audit Logs by User
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Audit Logs by Action
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Audit Logs by Date Range
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Search Audit Logs
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Audit Statistics
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Audit Stats by Period
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Export Audit Logs
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-pass">
+                                    ✅
+                                </span>
+                                Unauthorized Access
+                                
+                                <br><small style="color: #666;">Unauthorized access correctly rejected</small>
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Invalid Audit Log ID
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Invalid Date Range
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Invalid Export Format
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                    </div>
+                </div>
+            
+                <div class="suite">
+                    <div class="suite-header">
+                        ✅ Dashboard Statistics
+                        <span style="float: right;">0.03s</span>
+                    </div>
+                    <div class="suite-content">
+                        
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Admin Login Setup
+                                <br><small style="color: #666;">Error: Admin login failed: Unknown error</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get User Role Stats
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Department Stats
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Region Stats
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Department Region Stats
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Feature Access Stats
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Access Denied Stats
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Dashboard Overview
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Recent Activities
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Stats with Date Filter
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Stats with Department Filter
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Stats with Region Filter
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-pass">
+                                    ✅
+                                </span>
+                                Unauthorized Access
+                                
+                                <br><small style="color: #666;">Unauthorized access correctly rejected</small>
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Invalid Date Range
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Invalid Department Filter
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Non-existent Endpoint
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                    </div>
+                </div>
+            
+                <div class="suite">
+                    <div class="suite-header">
+                        ✅ Admin Management
+                        <span style="float: right;">0.53s</span>
+                    </div>
+                    <div class="suite-content">
+                        
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Admin Login Setup
+                                <br><small style="color: #666;">Error: Admin login failed: Unknown error</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Route Discovery
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Route Discovery with Filters
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Refresh Route Discovery
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get System Status
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get System Configuration
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Update System Configuration
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get All Users (Admin)
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Create New User (Admin)
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Update User Status
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Create New Role (Admin)
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Assign Role to User
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Get Audit Logs (Admin)
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Clear Old Audit Logs
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-pass">
+                                    ✅
+                                </span>
+                                Unauthorized Access
+                                
+                                <br><small style="color: #666;">Unauthorized access correctly rejected</small>
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-pass">
+                                    ✅
+                                </span>
+                                Insufficient Permissions
+                                
+                                <br><small style="color: #666;">Insufficient permissions correctly rejected</small>
+                            </div>
+                        
+                            <div class="test-item">
+                                <span class="status-fail">
+                                    ❌
+                                </span>
+                                Invalid Configuration Update
+                                <br><small style="color: #666;">Error: No admin token available</small>
+                                
+                            </div>
+                        
+                    </div>
+                </div>
+            
+        </div>
+    </div>
+</body>
+</html>

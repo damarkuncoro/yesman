@@ -14,6 +14,18 @@ class SetupService {
   async setup(): Promise<void> {
     console.log('🔧 Setup service loaded');
     
+    // Log environment information
+    const nodeEnv = process.env.NODE_ENV || 'development';
+    const isDevelopment = nodeEnv === 'development';
+    const isProduction = nodeEnv === 'production';
+    
+    console.log('🌍 Environment Information:');
+    console.log(`   - NODE_ENV: ${nodeEnv}`);
+    console.log(`   - Mode: ${isDevelopment ? 'Development' : isProduction ? 'Production' : 'Unknown'}`);
+    console.log(`   - Debug Logging: ${isDevelopment ? 'Enabled' : 'Disabled'}`);
+    console.log(`   - Rate Limiting: ${isDevelopment ? 'Disabled' : 'Enabled'}`);
+    console.log(`   - CORS: ${isDevelopment ? 'Permissive (localhost)' : 'Strict (production domains)'}`);
+    
     try {
       // Setup basic configuration
       console.log('⚙️ Initializing basic configuration...');

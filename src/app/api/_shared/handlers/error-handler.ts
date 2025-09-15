@@ -110,6 +110,26 @@ export class AuthErrorHandler {
     context: ErrorContext,
     serviceName: string
   ): NextResponse {
+    // Handle specific error types by class name
+    if (error && typeof error === 'object' && 'constructor' in error) {
+      const errorName = error.constructor.name;
+      
+      // ConflictError - untuk duplicate data
+         if (errorName === 'ConflictError') {
+           const message = error instanceof Error ? error.message : 'Data sudah ada';
+           authErrorHandlerInstance.logError(error, context, 'info');
+           // Return error message langsung dengan pesan spesifik
+           return authErrorHandlerInstance.error(message, 409);
+         }
+      
+      // ValidationError - untuk validation errors
+      if (errorName === 'ValidationError') {
+        const message = error instanceof Error ? error.message : 'Data tidak valid';
+        authErrorHandlerInstance.logError(error, context, 'info');
+        return authErrorHandlerInstance.validationError([message]);
+      }
+    }
+    
     if (error instanceof Error) {
       // Authentication errors - Token tidak ditemukan
       if (error.message.includes('Token tidak ditemukan')) {
@@ -125,10 +145,23 @@ export class AuthErrorHandler {
         return authErrorHandlerInstance.unauthorized("Email atau password salah");
       }
       
-      // Validation errors
+      // Validation errors - Email sudah terdaftar
       if (error.message.includes('Email sudah terdaftar')) {
         authErrorHandlerInstance.logError(error, context, 'info');
         return authErrorHandlerInstance.validationError(["Email sudah terdaftar"]);
+      }
+      
+      // Validation errors - Password complexity
+      if (error.message.includes('Password harus mengandung') || 
+          error.message.includes('ValidationError')) {
+        authErrorHandlerInstance.logError(error, context, 'info');
+        return authErrorHandlerInstance.validationError([error.message]);
+      }
+      
+      // General validation errors
+      if (error.message.includes('validation') || error.message.includes('invalid')) {
+        authErrorHandlerInstance.logError(error, context, 'info');
+        return authErrorHandlerInstance.validationError([error.message]);
       }
     }
 

@@ -180,11 +180,36 @@ export class AuthService implements IAuthService {
       this.permissionService
     );
     
-    // Create simple service instances for now - will be refactored later
-    this.userRegistrationService = {
-      registerUser: async () => { throw new Error('Not implemented'); },
-      bulkRegisterUsers: async () => { throw new Error('Not implemented'); }
-    } as any;
+    // Create adapter for UserRepository to match UserRegistrationService interface
+    const userRegistrationRepositoryAdapter = {
+      findByEmail: async (email: string) => {
+        return await userRepository.findByEmail(email);
+      },
+      create: async (data: any) => {
+        return await userRepository.create(data);
+      },
+      findById: async (id: string) => {
+        return await userRepository.findById(parseInt(id));
+      }
+    };
+    
+    // Create adapter for RoleRepository to match UserRegistrationService interface
+    const roleRegistrationRepositoryAdapter = {
+      findById: async (id: string) => {
+        return await roleRepository.findById(parseInt(id));
+      },
+      findByName: async (name: string) => {
+        return await roleRepository.findByName(name);
+      }
+    };
+    
+    // Create UserRegistrationService instance
+    this.userRegistrationService = new UserRegistrationService(
+      userRegistrationRepositoryAdapter,
+      roleRegistrationRepositoryAdapter,
+      this.passwordService,
+      this.permissionService
+    );
   }
 
   /**
@@ -373,8 +398,57 @@ export class AuthService implements IAuthService {
    * @returns Promise<AuthResponse> - Response dengan token
    */
   async register(userData: unknown): Promise<AuthResponse> {
-    // Implementation will be added later
-    throw new Error('register method not implemented yet');
+    try {
+      // Validasi dan parse input data menggunakan method yang sudah ada
+      const registrationData = this.validateRegistrationData(userData);
+      
+      // Gunakan UserRegistrationService untuk proses registrasi
+      // Perlu currentUser untuk permission check, gunakan null untuk self-registration
+      const userResponse = await this.userRegistrationService.registerUser({
+        name: registrationData.name,
+        email: registrationData.email,
+        password: registrationData.password,
+        department: registrationData.department,
+        region: registrationData.region,
+        level: registrationData.level
+      }, null);
+      
+      // Generate tokens untuk user yang baru dibuat
+      const tokens = this.tokenService.generateTokens({
+        userId: parseInt(userResponse.id),
+        email: userResponse.email
+      });
+      
+      // Buat session untuk user
+      await sessionRepository.create({
+        userId: parseInt(userResponse.id),
+        refreshToken: tokens.refreshToken,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 hari
+      });
+      
+      // Konversi response ke format AuthResponse
+      const authResponse: AuthResponse = {
+        user: {
+          id: parseInt(userResponse.id),
+          name: userResponse.name,
+          email: userResponse.email,
+          active: true,
+          department: userResponse.department,
+          region: userResponse.region,
+          level: userResponse.level,
+          rolesUpdatedAt: null,
+          createdAt: userResponse.createdAt,
+          updatedAt: userResponse.createdAt
+        },
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken
+      };
+      
+      return authResponse;
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
+    }
   }
 
   /**
@@ -420,6 +494,53 @@ export class AuthService implements IAuthService {
   }
 
   /**
+   * Validasi data registrasi
+   * @param registrationData - Data registrasi yang akan divalidasi
+   * @returns Validated registration data
+   */
+  private validateRegistrationData(registrationData: unknown) {
+    if (!registrationData || typeof registrationData !== 'object') {
+      throw new ValidationError('Data registrasi tidak valid');
+    }
+
+    const data = registrationData as Record<string, any>;
+
+    if (!data.name || typeof data.name !== 'string') {
+      throw new ValidationError('Nama diperlukan dan harus berupa string');
+    }
+
+    if (!data.email || typeof data.email !== 'string') {
+      throw new ValidationError('Email diperlukan dan harus berupa string');
+    }
+
+    if (!data.password || typeof data.password !== 'string') {
+      throw new ValidationError('Password diperlukan dan harus berupa string');
+    }
+
+    // Validasi format email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.email)) {
+      throw new ValidationError('Format email tidak valid');
+    }
+
+    // Validasi panjang password
+    if (data.password.length < 6) {
+      throw new ValidationError('Password minimal 6 karakter');
+    }
+
+    return {
+      name: data.name.trim(),
+      email: data.email.toLowerCase().trim(),
+      password: data.password,
+      department: data.department || null,
+      region: data.region || null,
+      level: data.level || null,
+      ipAddress: data.ipAddress,
+      userAgent: data.userAgent
+    };
+  }
+
+  /**
    * Validasi data login
    * @param loginData - Data login yang akan divalidasi
    * @returns Validated login credentials
@@ -447,6 +568,8 @@ export class AuthService implements IAuthService {
       userAgent: data.userAgent
     };
   }
+
+
 
   /**
    * Logout user dengan menghapus refresh token

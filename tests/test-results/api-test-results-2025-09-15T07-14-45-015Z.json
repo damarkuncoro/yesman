@@ -1,0 +1,567 @@
+{
+  "startTime": 1757920463701,
+  "endTime": 1757920485012,
+  "duration": 21311,
+  "suites": [
+    {
+      "name": "Authentication",
+      "startTime": 1757920463799,
+      "endTime": 1757920467476,
+      "duration": 3677,
+      "status": "COMPLETED",
+      "results": {
+        "total": 6,
+        "passed": 0,
+        "failed": 6,
+        "errors": 0,
+        "results": [
+          {
+            "test": "User Registration",
+            "status": "FAIL",
+            "error": "Registration failed: Terjadi kesalahan pada server"
+          },
+          {
+            "test": "User Login",
+            "status": "FAIL",
+            "error": "Login failed: Terjadi kesalahan pada server"
+          },
+          {
+            "test": "Token Validation",
+            "status": "FAIL",
+            "error": "No auth token available for validation"
+          },
+          {
+            "test": "Token Refresh",
+            "status": "FAIL",
+            "error": "No refresh token available"
+          },
+          {
+            "test": "Invalid Login",
+            "status": "FAIL",
+            "error": "Invalid login should have been rejected"
+          },
+          {
+            "test": "User Logout",
+            "status": "FAIL",
+            "error": "No auth token available for logout"
+          }
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "User Management",
+      "startTime": 1757920469476,
+      "endTime": 1757920470524,
+      "duration": 1048,
+      "status": "COMPLETED",
+      "results": {
+        "total": 8,
+        "passed": 1,
+        "failed": 7,
+        "errors": 0,
+        "results": [
+          {
+            "test": "Admin Login Setup",
+            "status": "FAIL",
+            "error": "Admin login failed: Terjadi kesalahan pada server"
+          },
+          {
+            "test": "Get All Users",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get User by ID",
+            "status": "FAIL",
+            "error": "No admin token or test user ID available"
+          },
+          {
+            "test": "Get User Roles",
+            "status": "FAIL",
+            "error": "No admin token or test user ID available"
+          },
+          {
+            "test": "Get User Permissions",
+            "status": "FAIL",
+            "error": "No admin token or test user ID available"
+          },
+          {
+            "test": "Get User Profile",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Unauthorized Access",
+            "status": "PASS",
+            "details": "Unauthorized access correctly rejected"
+          },
+          {
+            "test": "Invalid User ID",
+            "status": "FAIL",
+            "error": "No admin token available"
+          }
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "RBAC (Role-Based Access Control)",
+      "startTime": 1757920472525,
+      "endTime": 1757920473731,
+      "duration": 1206,
+      "status": "COMPLETED",
+      "results": {
+        "total": 12,
+        "passed": 1,
+        "failed": 11,
+        "errors": 0,
+        "results": [
+          {
+            "test": "Admin Login Setup",
+            "status": "FAIL",
+            "error": "Admin login failed: Terjadi kesalahan pada server"
+          },
+          {
+            "test": "Get All Roles",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Role by ID",
+            "status": "FAIL",
+            "error": "No admin token or test role ID available"
+          },
+          {
+            "test": "Get Role Features",
+            "status": "FAIL",
+            "error": "No admin token or test role ID available"
+          },
+          {
+            "test": "Get All Features",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Feature by ID",
+            "status": "FAIL",
+            "error": "No admin token or test feature ID available"
+          },
+          {
+            "test": "Get Feature Routes",
+            "status": "FAIL",
+            "error": "No admin token or test feature ID available"
+          },
+          {
+            "test": "Get All Route Features",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Route Feature by ID",
+            "status": "FAIL",
+            "error": "No admin token or test route feature ID available"
+          },
+          {
+            "test": "Unauthorized Access",
+            "status": "PASS",
+            "details": "Unauthorized access correctly rejected"
+          },
+          {
+            "test": "Invalid Role ID",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Invalid Feature ID",
+            "status": "FAIL",
+            "error": "No admin token available"
+          }
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "ABAC (Attribute-Based Access Control)",
+      "startTime": 1757920475800,
+      "endTime": 1757920476701,
+      "duration": 901,
+      "status": "COMPLETED",
+      "results": {
+        "total": 14,
+        "passed": 1,
+        "failed": 13,
+        "errors": 0,
+        "results": [
+          {
+            "test": "Admin Login Setup",
+            "status": "FAIL",
+            "error": "Admin login failed: Terjadi kesalahan pada server"
+          },
+          {
+            "test": "Get All Policies",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Policy by ID",
+            "status": "FAIL",
+            "error": "No admin token or test policy ID available"
+          },
+          {
+            "test": "Get Policy Rules",
+            "status": "FAIL",
+            "error": "No admin token or test policy ID available"
+          },
+          {
+            "test": "Evaluate Policy",
+            "status": "FAIL",
+            "error": "No admin token or test policy ID available"
+          },
+          {
+            "test": "Get All Attributes",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Attribute by ID",
+            "status": "FAIL",
+            "error": "No admin token or test attribute ID available"
+          },
+          {
+            "test": "Get Attributes by Category",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get User Attributes",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Batch Policy Evaluation",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Unauthorized Access",
+            "status": "PASS",
+            "details": "Unauthorized access correctly rejected"
+          },
+          {
+            "test": "Invalid Policy ID",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Invalid Attribute ID",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Invalid Evaluation Context",
+            "status": "FAIL",
+            "error": "No admin token or test policy ID available"
+          }
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "Audit Logging",
+      "startTime": 1757920478702,
+      "endTime": 1757920479587,
+      "duration": 885,
+      "status": "COMPLETED",
+      "results": {
+        "total": 15,
+        "passed": 1,
+        "failed": 14,
+        "errors": 0,
+        "results": [
+          {
+            "test": "Admin Login Setup",
+            "status": "FAIL",
+            "error": "Admin login failed: Terjadi kesalahan pada server"
+          },
+          {
+            "test": "Get All Audit Logs",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Audit Log by ID",
+            "status": "FAIL",
+            "error": "No admin token or test audit ID available"
+          },
+          {
+            "test": "Get Audit Logs with Pagination",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Audit Logs by User",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Audit Logs by Action",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Audit Logs by Date Range",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Search Audit Logs",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Audit Statistics",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Audit Stats by Period",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Export Audit Logs",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Unauthorized Access",
+            "status": "PASS",
+            "details": "Unauthorized access correctly rejected"
+          },
+          {
+            "test": "Invalid Audit Log ID",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Invalid Date Range",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Invalid Export Format",
+            "status": "FAIL",
+            "error": "No admin token available"
+          }
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "Dashboard Statistics",
+      "startTime": 1757920481587,
+      "endTime": 1757920482477,
+      "duration": 890,
+      "status": "COMPLETED",
+      "results": {
+        "total": 16,
+        "passed": 1,
+        "failed": 15,
+        "errors": 0,
+        "results": [
+          {
+            "test": "Admin Login Setup",
+            "status": "FAIL",
+            "error": "Admin login failed: Terjadi kesalahan pada server"
+          },
+          {
+            "test": "Get User Role Stats",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Department Stats",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Region Stats",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Department Region Stats",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Feature Access Stats",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Access Denied Stats",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Dashboard Overview",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Recent Activities",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Stats with Date Filter",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Stats with Department Filter",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Stats with Region Filter",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Unauthorized Access",
+            "status": "PASS",
+            "details": "Unauthorized access correctly rejected"
+          },
+          {
+            "test": "Invalid Date Range",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Invalid Department Filter",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Non-existent Endpoint",
+            "status": "FAIL",
+            "error": "No admin token available"
+          }
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "Admin Management",
+      "startTime": 1757920484478,
+      "endTime": 1757920485012,
+      "duration": 534,
+      "status": "COMPLETED",
+      "results": {
+        "total": 17,
+        "passed": 2,
+        "failed": 15,
+        "errors": 0,
+        "results": [
+          {
+            "test": "Admin Login Setup",
+            "status": "FAIL",
+            "error": "Admin login failed: Terjadi kesalahan pada server"
+          },
+          {
+            "test": "Get Route Discovery",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Route Discovery with Filters",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Refresh Route Discovery",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get System Status",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get System Configuration",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Update System Configuration",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get All Users (Admin)",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Create New User (Admin)",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Update User Status",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Create New Role (Admin)",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Assign Role to User",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Get Audit Logs (Admin)",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Clear Old Audit Logs",
+            "status": "FAIL",
+            "error": "No admin token available"
+          },
+          {
+            "test": "Unauthorized Access",
+            "status": "PASS",
+            "details": "Unauthorized access correctly rejected"
+          },
+          {
+            "test": "Insufficient Permissions",
+            "status": "PASS",
+            "details": "Insufficient permissions correctly rejected"
+          },
+          {
+            "test": "Invalid Configuration Update",
+            "status": "FAIL",
+            "error": "No admin token available"
+          }
+        ]
+      },
+      "error": null
+    }
+  ],
+  "summary": {
+    "totalTests": 88,
+    "passed": 7,
+    "failed": 81,
+    "errors": 0,
+    "skipped": 0,
+    "successRate": 7.95
+  }
+}

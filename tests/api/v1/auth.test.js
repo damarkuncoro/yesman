@@ -10,7 +10,7 @@ const API_VERSION = 'v1';
  * Utility function untuk melakukan HTTP request
  */
 async function makeRequest(endpoint, options = {}) {
-  const url = `${BASE_URL}/api/${API_VERSION}${endpoint}`;
+  const url = `${BASE_URL}/api${endpoint}`;
   const defaultOptions = {
     method: 'GET',
     headers: {
@@ -47,9 +47,12 @@ async function makeRequest(endpoint, options = {}) {
  * Test data untuk authentication
  */
 const testUser = {
-  email: 'test1@example.com',
+  email: `test${Date.now()}@example.com`,
   password: 'password123',
-  name: 'Test User 1'
+  name: 'Test User 1',
+  department: 'IT',
+  region: 'Jakarta',
+  level: 1
 };
 
 let authToken = null;

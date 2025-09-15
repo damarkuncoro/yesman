@@ -9,31 +9,87 @@ import { ActionType, RouteMatcher } from '../types';
  * Implementasi route matcher untuk menentukan routing logic
  */
 export class DefaultRouteMatcher implements RouteMatcher {
+  /**
+   * Public routes yang tidak memerlukan authentication untuk halaman web
+   */
   private readonly publicRoutes: string[] = [
     '/',
     '/login',
     '/register',
     '/forgot-password',
-    '/reset-password',
+    '/reset-password'
+  ];
+
+  /**
+   * API routes yang tidak memerlukan authentication
+   * Dipisah dari publicRoutes untuk kemudahan maintenance
+   */
+  private readonly publicApiRoutes: string[] = [
+    '/api/health',
+    '/api/version',
+    // Legacy auth endpoints (non-versioned)
     '/api/auth/login',
     '/api/auth/register',
     '/api/auth/refresh',
-    '/api/health'
+    '/api/auth/validate',
+    // V1 auth endpoints
+    '/api/v1/auth/login',
+    '/api/v1/auth/register',
+    '/api/v1/auth/refresh',
+    '/api/v1/auth/validate'
   ];
 
+  /**
+   * Patterns yang harus di-skip dari middleware processing
+   */
   private readonly skipPatterns: string[] = [
     '/_next/',
     '/api/auth/',
+    '/api/v1/auth/',
     '/favicon.ico'
   ];
 
   /**
-   * Cek apakah route adalah public route
+   * Cek apakah route adalah public route (web pages atau API)
    * @param pathname - Path yang akan dicek
    * @returns boolean - true jika public route
    */
   isPublicRoute(pathname: string): boolean {
+    return this.publicRoutes.includes(pathname) || this.publicApiRoutes.includes(pathname);
+  }
+
+  /**
+   * Cek apakah route adalah public API route
+   * @param pathname - Path yang akan dicek
+   * @returns boolean - true jika public API route
+   */
+  isPublicApiRoute(pathname: string): boolean {
+    return this.publicApiRoutes.includes(pathname);
+  }
+
+  /**
+   * Cek apakah route adalah public web route
+   * @param pathname - Path yang akan dicek
+   * @returns boolean - true jika public web route
+   */
+  isPublicWebRoute(pathname: string): boolean {
     return this.publicRoutes.includes(pathname);
+  }
+
+  /**
+   * Dapatkan semua public API routes
+   * @returns string[] - Array of public API routes
+   */
+  getPublicApiRoutes(): string[] {
+    return [...this.publicApiRoutes];
+  }
+
+  /**
+   * Dapatkan semua public web routes
+   * @returns string[] - Array of public web routes
+   */
+  getPublicWebRoutes(): string[] {
+    return [...this.publicRoutes];
   }
 
   /**

@@ -16,7 +16,7 @@ try {
 
 // Import semua test suite
 const { AuthTestSuite } = require('./auth.test.js');
-const { UsersTestSuite } = require('./users.test.js');
+const { UserTestSuite } = require('./users.test.js');
 const { RBACTestSuite } = require('./rbac.test.js');
 const { ABACTestSuite } = require('./abac.test.js');
 const { AuditTestSuite } = require('./audit.test.js');
@@ -448,7 +448,7 @@ class APITestRunner {
     // Daftar test suite yang akan dijalankan
     const testSuites = [
       { class: AuthTestSuite, name: 'Authentication' },
-      { class: UsersTestSuite, name: 'User Management' },
+      { class: UserTestSuite, name: 'User Management' },
       { class: RBACTestSuite, name: 'RBAC (Role-Based Access Control)' },
       { class: ABACTestSuite, name: 'ABAC (Attribute-Based Access Control)' },
       { class: AuditTestSuite, name: 'Audit Logging' },

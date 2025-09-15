@@ -1,0 +1,433 @@
+### YesMan API Testing
+### Base URL: http://localhost:3000
+
+# Variables
+@baseUrl = http://localhost:3000
+@token = your_jwt_token_here
+@userId = 1
+@roleId = 1
+@featureId = 1
+@policyId = 1
+@attributeId = 1
+
+###############################################
+# SYSTEM HEALTH & VERSION
+###############################################
+
+### Health Check
+GET {{baseUrl}}/api/health
+
+### API Version Info
+GET {{baseUrl}}/api/version
+
+###############################################
+# AUTHENTICATION
+###############################################
+
+### Login
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@company.com",
+  "password": "admin123"
+}
+
+### Register New User
+POST {{baseUrl}}/api/v1/auth/register
+Content-Type: application/json
+
+{
+  "email": "register1@example.com",
+  "password": "password123",
+  "name": "New User",
+  "department": "IT",
+  "region": "Jakarta"
+}
+
+### Validate Token
+POST {{baseUrl}}/api/v1/auth/validate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+### Refresh Token
+POST {{baseUrl}}/api/v1/auth/refresh
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+### Logout
+POST {{baseUrl}}/api/v1/auth/logout
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+###############################################
+# USER MANAGEMENT
+###############################################
+
+### Get All Users
+GET {{baseUrl}}/api/v1/users
+Authorization: Bearer {{token}}
+
+### Get User by ID
+GET {{baseUrl}}/api/v1/users/{{userId}}
+Authorization: Bearer {{token}}
+
+### Get User Profile (Current User)
+GET {{baseUrl}}/api/v1/users/profile
+Authorization: Bearer {{token}}
+
+### Get User Roles
+GET {{baseUrl}}/api/v1/users/{{userId}}/roles
+Authorization: Bearer {{token}}
+
+### Get User Permissions
+GET {{baseUrl}}/api/v1/users/{{userId}}/permissions
+Authorization: Bearer {{token}}
+
+###############################################
+# RBAC - ROLES MANAGEMENT
+###############################################
+
+### Get All Roles
+GET {{baseUrl}}/api/v1/rbac/roles
+Authorization: Bearer {{token}}
+
+### Create New Role
+POST {{baseUrl}}/api/v1/rbac/roles
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Test Role",
+  "description": "Role untuk testing",
+  "is_active": true
+}
+
+### Get Role by ID
+GET {{baseUrl}}/api/v1/rbac/roles/{{roleId}}
+Authorization: Bearer {{token}}
+
+### Update Role
+PUT {{baseUrl}}/api/v1/rbac/roles/{{roleId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Updated Test Role",
+  "description": "Role yang sudah diupdate",
+  "is_active": true
+}
+
+### Delete Role
+DELETE {{baseUrl}}/api/v1/rbac/roles/{{roleId}}
+Authorization: Bearer {{token}}
+
+### Get Role Features
+GET {{baseUrl}}/api/v1/rbac/roles/{{roleId}}/features
+Authorization: Bearer {{token}}
+
+### Get Role Users
+GET {{baseUrl}}/api/v1/rbac/roles/{{roleId}}/users
+Authorization: Bearer {{token}}
+
+###############################################
+# RBAC - FEATURES MANAGEMENT
+###############################################
+
+### Get All Features
+GET {{baseUrl}}/api/v1/rbac/features
+Authorization: Bearer {{token}}
+
+### Create New Feature
+POST {{baseUrl}}/api/v1/rbac/features
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "test_feature",
+  "description": "Feature untuk testing",
+  "is_active": true
+}
+
+### Get Feature by ID
+GET {{baseUrl}}/api/v1/rbac/features/{{featureId}}
+Authorization: Bearer {{token}}
+
+### Update Feature
+PUT {{baseUrl}}/api/v1/rbac/features/{{featureId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "updated_test_feature",
+  "description": "Feature yang sudah diupdate",
+  "is_active": true
+}
+
+### Delete Feature
+DELETE {{baseUrl}}/api/v1/rbac/features/{{featureId}}
+Authorization: Bearer {{token}}
+
+###############################################
+# RBAC - ROUTE FEATURES
+###############################################
+
+### Get All Route Features
+GET {{baseUrl}}/api/v1/rbac/route-features
+Authorization: Bearer {{token}}
+
+### Create New Route Feature
+POST {{baseUrl}}/api/v1/rbac/route-features
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "route_path": "/api/v1/test",
+  "http_method": "GET",
+  "feature_id": {{featureId}},
+  "required_permission": "test_feature:read"
+}
+
+### Get Route Feature by ID
+GET {{baseUrl}}/api/v1/rbac/route-features/1
+Authorization: Bearer {{token}}
+
+### Update Route Feature
+PUT {{baseUrl}}/api/v1/rbac/route-features/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "route_path": "/api/v1/test-updated",
+  "http_method": "POST",
+  "feature_id": {{featureId}},
+  "required_permission": "test_feature:create"
+}
+
+### Delete Route Feature
+DELETE {{baseUrl}}/api/v1/rbac/route-features/1
+Authorization: Bearer {{token}}
+
+###############################################
+# ABAC - POLICIES MANAGEMENT
+###############################################
+
+### Get Policies by Feature ID
+GET {{baseUrl}}/api/v1/abac/policies?feature_id={{featureId}}
+Authorization: Bearer {{token}}
+
+### Create New Policy
+POST {{baseUrl}}/api/v1/abac/policies
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Test Policy",
+  "description": "Policy untuk testing",
+  "feature_id": {{featureId}},
+  "conditions": {
+    "department": "IT",
+    "region": "Jakarta"
+  },
+  "is_active": true
+}
+
+### Get Policy by ID
+GET {{baseUrl}}/api/v1/abac/policies/{{policyId}}
+Authorization: Bearer {{token}}
+
+### Update Policy
+PUT {{baseUrl}}/api/v1/abac/policies/{{policyId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Updated Test Policy",
+  "description": "Policy yang sudah diupdate",
+  "feature_id": {{featureId}},
+  "conditions": {
+    "department": "IT",
+    "region": "Bandung"
+  },
+  "is_active": true
+}
+
+### Delete Policy
+DELETE {{baseUrl}}/api/v1/abac/policies/{{policyId}}
+Authorization: Bearer {{token}}
+
+###############################################
+# ABAC - ATTRIBUTES MANAGEMENT
+###############################################
+
+### Get All Attributes
+GET {{baseUrl}}/api/v1/abac/attributes
+Authorization: Bearer {{token}}
+
+### Create New Attribute
+POST {{baseUrl}}/api/v1/abac/attributes
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "test_attribute",
+  "description": "Attribute untuk testing",
+  "data_type": "string",
+  "is_active": true
+}
+
+### Get Attribute by ID
+GET {{baseUrl}}/api/v1/abac/attributes/{{attributeId}}
+Authorization: Bearer {{token}}
+
+### Update Attribute
+PUT {{baseUrl}}/api/v1/abac/attributes/{{attributeId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "updated_test_attribute",
+  "description": "Attribute yang sudah diupdate",
+  "data_type": "number",
+  "is_active": true
+}
+
+### Delete Attribute
+DELETE {{baseUrl}}/api/v1/abac/attributes/{{attributeId}}
+Authorization: Bearer {{token}}
+
+###############################################
+# AUDIT & MONITORING
+###############################################
+
+### Get Access Logs
+GET {{baseUrl}}/api/v1/audit/access-logs?limit=10&offset=0
+Authorization: Bearer {{token}}
+
+### Get Access Logs with Filters
+GET {{baseUrl}}/api/v1/audit/access-logs?user_id={{userId}}&start_date=2025-01-01&end_date=2025-01-31
+Authorization: Bearer {{token}}
+
+### Get Policy Violations
+GET {{baseUrl}}/api/v1/audit/policy-violations?limit=10&offset=0
+Authorization: Bearer {{token}}
+
+### Get Change History
+GET {{baseUrl}}/api/v1/audit/change-history?limit=10&offset=0
+Authorization: Bearer {{token}}
+
+### Get Session Logs
+GET {{baseUrl}}/api/v1/audit/session-logs?limit=10&offset=0
+Authorization: Bearer {{token}}
+
+###############################################
+# DASHBOARD & ANALYTICS
+###############################################
+
+### Get General Statistics
+GET {{baseUrl}}/api/v1/dashboard/stats
+Authorization: Bearer {{token}}
+
+### Get User Statistics
+GET {{baseUrl}}/api/v1/dashboard/user-stats
+Authorization: Bearer {{token}}
+
+### Get Role Statistics
+GET {{baseUrl}}/api/v1/dashboard/role-stats
+Authorization: Bearer {{token}}
+
+### Get Feature Statistics
+GET {{baseUrl}}/api/v1/dashboard/feature-stats
+Authorization: Bearer {{token}}
+
+### Get Access Statistics
+GET {{baseUrl}}/api/v1/dashboard/access-stats
+Authorization: Bearer {{token}}
+
+### Get Department Statistics
+GET {{baseUrl}}/api/v1/dashboard/department-stats
+Authorization: Bearer {{token}}
+
+### Get User Role Statistics
+GET {{baseUrl}}/api/v1/dashboard/user-role-stats
+Authorization: Bearer {{token}}
+
+### Get Feature Access Statistics
+GET {{baseUrl}}/api/v1/dashboard/feature-access-stats
+Authorization: Bearer {{token}}
+
+### Get Access Denied Statistics
+GET {{baseUrl}}/api/v1/dashboard/access-denied-stats
+Authorization: Bearer {{token}}
+
+### Get Region Statistics
+GET {{baseUrl}}/api/v1/dashboard/region-stats
+Authorization: Bearer {{token}}
+
+### Get Department Region Statistics
+GET {{baseUrl}}/api/v1/dashboard/department-region-stats
+Authorization: Bearer {{token}}
+
+###############################################
+# ADMINISTRATION
+###############################################
+
+### Run Route Discovery
+POST {{baseUrl}}/api/v1/admin/route-discovery
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+### Get Route Discovery Status
+GET {{baseUrl}}/api/v1/admin/route-discovery
+Authorization: Bearer {{token}}
+
+### Get System Health
+GET {{baseUrl}}/api/v1/admin/system-health
+Authorization: Bearer {{token}}
+
+### Enable Maintenance Mode
+POST {{baseUrl}}/api/v1/admin/maintenance
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "enabled": true,
+  "message": "Sistem sedang dalam maintenance"
+}
+
+### Disable Maintenance Mode
+POST {{baseUrl}}/api/v1/admin/maintenance
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "enabled": false
+}
+
+###############################################
+# ERROR TESTING
+###############################################
+
+### Test Unauthorized Access (No Token)
+GET {{baseUrl}}/api/v1/users
+
+### Test Invalid Token
+GET {{baseUrl}}/api/v1/users
+Authorization: Bearer invalid_token_here
+
+### Test Not Found
+GET {{baseUrl}}/api/v1/users/99999
+Authorization: Bearer {{token}}
+
+### Test Bad Request (Invalid JSON)
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "invalid-email",
+  "password": ""
+}
+
+### Test Rate Limiting (Multiple Requests)
+# Jalankan request ini berkali-kali untuk test rate limiting
+GET {{baseUrl}}/api/health
