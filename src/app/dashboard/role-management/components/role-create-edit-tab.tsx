@@ -24,97 +24,13 @@ import {
 } from "@/components/shadcn/ui/table"
 import { IconDeviceFloppy, IconArrowLeft } from "@tabler/icons-react"
 import { toast } from "sonner"
+import { useAuth } from "@/contexts/AuthContext"
 
-// Mock data untuk available features
-const mockFeatures = [
-  {
-    id: "1",
-    name: "User Management",
-    description: "Manage users and their permissions",
-    category: "Administration"
-  },
-  {
-    id: "2",
-    name: "Role Management",
-    description: "Manage roles and permissions",
-    category: "Administration"
-  },
-  {
-    id: "3",
-    name: "System Settings",
-    description: "Configure system-wide settings",
-    category: "Administration"
-  },
-  {
-    id: "4",
-    name: "Content Management",
-    description: "Create and edit content",
-    category: "Content"
-  },
-  {
-    id: "5",
-    name: "Media Library",
-    description: "Manage media files",
-    category: "Content"
-  },
-  {
-    id: "6",
-    name: "Reports",
-    description: "View and generate reports",
-    category: "Analytics"
-  },
-  {
-    id: "7",
-    name: "Dashboard",
-    description: "View dashboard and analytics",
-    category: "Analytics"
-  },
-  {
-    id: "8",
-    name: "Audit Logs",
-    description: "View system audit logs",
-    category: "Security"
-  }
-]
-
-// Mock data untuk existing role (untuk edit mode)
-const mockExistingRole = {
-  "1": {
-    id: "1",
-    name: "Admin",
-    description: "Full system administrator access",
-    grantsAll: true,
-    features: []
-  },
-  "2": {
-    id: "2",
-    name: "Editor",
-    description: "Content management and editing permissions",
-    grantsAll: false,
-    features: [
-      {
-        featureId: "4",
-        canCreate: true,
-        canRead: true,
-        canUpdate: true,
-        canDelete: false
-      },
-      {
-        featureId: "5",
-        canCreate: true,
-        canRead: true,
-        canUpdate: true,
-        canDelete: true
-      },
-      {
-        featureId: "6",
-        canCreate: false,
-        canRead: true,
-        canUpdate: false,
-        canDelete: false
-      }
-    ]
-  }
+interface Feature {
+  id: number
+  name: string
+  description: string
+  category: string
 }
 
 interface RoleCreateEditTabProps {
@@ -131,48 +47,117 @@ interface FeaturePermission {
   canDelete: boolean
 }
 
+interface RoleFormData {
+  name: string
+  description: string
+  grantsAll: boolean
+  features: FeaturePermission[]
+}
+
 /**
  * Komponen tab untuk membuat atau mengedit role
  * Mengelola role baru, set grantsAll, pilih fitur yang diizinkan, dan set CRUD flags
  */
 export function RoleCreateEditTab({ roleId, mode, onSuccess }: RoleCreateEditTabProps) {
+  const { accessToken } = useAuth()
   const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    grantsAll: false
+  const [loadingData, setLoadingData] = useState(false)
+  const [formData, setFormData] = useState<RoleFormData>({
+    name: '',
+    description: '',
+    grantsAll: false,
+    features: []
   })
-  const [selectedFeatures, setSelectedFeatures] = useState<FeaturePermission[]>([])
+  const [availableFeatures, setAvailableFeatures] = useState<Feature[]>([])
+  const [errors, setErrors] = useState<{[key: string]: string}>({})
 
   /**
-   * Load existing role data untuk edit mode
+   * Fetch available features dari API
+   */
+  const fetchFeatures = async () => {
+    if (!accessToken) return
+
+    try {
+      const response = await fetch('/api/rbac/features', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Gagal mengambil data features')
+      }
+
+      if (result.success && result.data) {
+        setAvailableFeatures(result.data)
+      }
+    } catch (error) {
+      console.error('Error fetching features:', error)
+      toast.error('Gagal mengambil data features')
+    }
+  }
+
+  /**
+   * Fetch role data untuk edit mode
+   */
+  const fetchRoleData = async (id: string) => {
+    if (!accessToken) return
+
+    try {
+      setLoadingData(true)
+      const response = await fetch(`/api/rbac/roles/${id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Gagal mengambil data role')
+      }
+
+      if (result.success && result.data) {
+        const roleData = result.data
+        setFormData({
+           name: roleData.name || '',
+           description: roleData.description || '',
+           grantsAll: roleData.grants_all || false,
+           features: roleData.features || []
+         })
+      }
+    } catch (error) {
+      console.error('Error fetching role data:', error)
+      toast.error('Gagal mengambil data role')
+    } finally {
+      setLoadingData(false)
+    }
+  }
+
+  /**
+   * Load data saat komponen dimount atau roleId berubah
    */
   useEffect(() => {
+    fetchFeatures()
+    
     if (mode === 'edit' && roleId) {
-      setLoading(true)
-      // Simulasi API call
-      setTimeout(() => {
-        const existingRole = mockExistingRole[roleId as keyof typeof mockExistingRole]
-        if (existingRole) {
-          setFormData({
-            name: existingRole.name,
-            description: existingRole.description,
-            grantsAll: existingRole.grantsAll
-          })
-          setSelectedFeatures(existingRole.features)
-        }
-        setLoading(false)
-      }, 500)
+      fetchRoleData(roleId)
     } else {
       // Reset form untuk create mode
       setFormData({
-        name: "",
-        description: "",
-        grantsAll: false
-      })
-      setSelectedFeatures([])
+         name: '',
+         description: '',
+         grantsAll: false,
+         features: []
+       })
     }
-  }, [mode, roleId])
+  }, [mode, roleId, accessToken])
 
   /**
    * Handle perubahan input form
@@ -185,7 +170,7 @@ export function RoleCreateEditTab({ roleId, mode, onSuccess }: RoleCreateEditTab
 
     // Jika grantsAll diaktifkan, clear selected features
     if (field === 'grantsAll' && value === true) {
-      setSelectedFeatures([])
+      // Features akan direset melalui formData
     }
   }
 
@@ -195,19 +180,25 @@ export function RoleCreateEditTab({ roleId, mode, onSuccess }: RoleCreateEditTab
   const handleFeatureToggle = (featureId: string, checked: boolean) => {
     if (checked) {
       // Add feature dengan default permissions
-      setSelectedFeatures(prev => [
+      setFormData(prev => ({
         ...prev,
-        {
-          featureId,
-          canCreate: false,
-          canRead: true,
-          canUpdate: false,
-          canDelete: false
-        }
-      ])
+        features: [
+          ...prev.features,
+          {
+            featureId,
+            canCreate: false,
+            canRead: false,
+            canUpdate: false,
+            canDelete: false
+          }
+        ]
+      }))
     } else {
       // Remove feature
-      setSelectedFeatures(prev => prev.filter(f => f.featureId !== featureId))
+      setFormData(prev => ({
+        ...prev,
+        features: prev.features.filter(f => f.featureId !== featureId)
+      }))
     }
   }
 
@@ -215,14 +206,17 @@ export function RoleCreateEditTab({ roleId, mode, onSuccess }: RoleCreateEditTab
    * Handle perubahan CRUD permissions
    */
   const handlePermissionChange = (featureId: string, permission: string, checked: boolean) => {
-    setSelectedFeatures(prev => prev.map(feature => {
-      if (feature.featureId === featureId) {
-        return {
-          ...feature,
-          [permission]: checked
+    setFormData(prev => ({
+      ...prev,
+      features: prev.features.map(feature => {
+        if (feature.featureId === featureId) {
+          return {
+            ...feature,
+            [permission]: checked
+          }
         }
-      }
-      return feature
+        return feature
+      })
     }))
   }
 
@@ -237,22 +231,53 @@ export function RoleCreateEditTab({ roleId, mode, onSuccess }: RoleCreateEditTab
       return
     }
 
-    if (!formData.grantsAll && selectedFeatures.length === 0) {
+    if (!formData.grantsAll && formData.features.length === 0) {
       toast.error("Please select at least one feature or enable 'Grants All'")
+      return
+    }
+
+    if (!accessToken) {
+      toast.error('Authentication required')
       return
     }
 
     setLoading(true)
 
     try {
-      // Simulasi API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const payload = {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        grants_all: formData.grantsAll,
+        features: formData.grantsAll ? [] : formData.features
+      }
+
+      const url = mode === 'create' 
+        ? '/api/rbac/roles'
+        : `/api/rbac/roles/${roleId}`
       
+      const method = mode === 'create' ? 'POST' : 'PUT'
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.message || `Failed to ${mode} role`)
+      }
+
       const action = mode === 'create' ? 'created' : 'updated'
       toast.success(`Role ${formData.name} ${action} successfully`)
       onSuccess()
     } catch (error) {
-      toast.error(`Failed to ${mode} role`)
+      console.error(`Error ${mode} role:`, error)
+      toast.error(error instanceof Error ? error.message : `Failed to ${mode} role`)
     } finally {
       setLoading(false)
     }
@@ -262,17 +287,17 @@ export function RoleCreateEditTab({ roleId, mode, onSuccess }: RoleCreateEditTab
    * Check if feature is selected
    */
   const isFeatureSelected = (featureId: string) => {
-    return selectedFeatures.some(f => f.featureId === featureId)
+    return formData.features.some(f => f.featureId === featureId)
   }
 
   /**
    * Get feature permissions
    */
   const getFeaturePermissions = (featureId: string) => {
-    return selectedFeatures.find(f => f.featureId === featureId)
+    return formData.features.find(f => f.featureId === featureId)
   }
 
-  if (loading && mode === 'edit') {
+  if (loadingData && mode === 'edit') {
     return (
       <Card>
         <CardContent className="flex items-center justify-center h-64">
@@ -360,20 +385,20 @@ export function RoleCreateEditTab({ roleId, mode, onSuccess }: RoleCreateEditTab
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mockFeatures.map((feature) => {
-                    const isSelected = isFeatureSelected(feature.id)
-                    const permissions = getFeaturePermissions(feature.id)
+                  {availableFeatures.map((feature) => {
+                    const isSelected = isFeatureSelected(feature.id.toString())
+                    const permissions = getFeaturePermissions(feature.id.toString())
                     
                     return (
-                      <TableRow key={feature.id}>
-                        <TableCell>
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={(checked) => 
-                              handleFeatureToggle(feature.id, checked as boolean)
-                            }
-                          />
-                        </TableCell>
+                        <TableRow key={feature.id}>
+                          <TableCell>
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(checked) => 
+                                handleFeatureToggle(feature.id.toString(), checked as boolean)
+                              }
+                            />
+                          </TableCell>
                         <TableCell>
                           <div>
                             <div className="font-medium">{feature.name}</div>
@@ -390,7 +415,7 @@ export function RoleCreateEditTab({ roleId, mode, onSuccess }: RoleCreateEditTab
                             checked={permissions?.canCreate || false}
                             disabled={!isSelected}
                             onCheckedChange={(checked) => 
-                              handlePermissionChange(feature.id, 'canCreate', checked as boolean)
+                              handlePermissionChange(feature.id.toString(), 'canCreate', checked as boolean)
                             }
                           />
                         </TableCell>
@@ -399,7 +424,7 @@ export function RoleCreateEditTab({ roleId, mode, onSuccess }: RoleCreateEditTab
                             checked={permissions?.canRead || false}
                             disabled={!isSelected}
                             onCheckedChange={(checked) => 
-                              handlePermissionChange(feature.id, 'canRead', checked as boolean)
+                              handlePermissionChange(feature.id.toString(), 'canRead', checked as boolean)
                             }
                           />
                         </TableCell>
@@ -408,7 +433,7 @@ export function RoleCreateEditTab({ roleId, mode, onSuccess }: RoleCreateEditTab
                             checked={permissions?.canUpdate || false}
                             disabled={!isSelected}
                             onCheckedChange={(checked) => 
-                              handlePermissionChange(feature.id, 'canUpdate', checked as boolean)
+                              handlePermissionChange(feature.id.toString(), 'canUpdate', checked as boolean)
                             }
                           />
                         </TableCell>
@@ -417,7 +442,7 @@ export function RoleCreateEditTab({ roleId, mode, onSuccess }: RoleCreateEditTab
                             checked={permissions?.canDelete || false}
                             disabled={!isSelected}
                             onCheckedChange={(checked) => 
-                              handlePermissionChange(feature.id, 'canDelete', checked as boolean)
+                              handlePermissionChange(feature.id.toString(), 'canDelete', checked as boolean)
                             }
                           />
                         </TableCell>

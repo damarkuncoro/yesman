@@ -21,39 +21,39 @@ import {
 import { IconEdit, IconArrowLeft, IconShield, IconCheck, IconX } from "@tabler/icons-react";
 
 interface Role {
-  id: string;
+  id: number;
   name: string;
-  description: string;
-  canCreate: boolean;
-  canRead: boolean;
-  canUpdate: boolean;
-  canDelete: boolean;
-  assignedAt: string;
+  permissions: {
+    canCreate: boolean;
+    canRead: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
+  };
 }
 
 interface Policy {
-  id: string;
-  name: string;
-  description: string;
-  type: "allow" | "deny";
-  conditions: string[];
+  id: number;
+  attribute: string;
+  operator: string;
+  value: string;
+  description?: string;
+  createdAt: string;
 }
 
 interface FeatureDetail {
-  id: string;
+  id: number;
   name: string;
   description: string;
-  isActive: boolean;
+  category?: string;
   createdAt: string;
-  updatedAt: string;
   roles: Role[];
   policies: Policy[];
 }
 
 interface FeatureDetailTabProps {
-  featureId: string | null;
-  onEdit: (featureId: string) => void;
-  onBackToList: () => void;
+  featureId: number | null;
+  onEdit: () => void;
+  onBack: () => void;
 }
 
 /**
@@ -63,122 +63,44 @@ interface FeatureDetailTabProps {
 export function FeatureDetailTab({
   featureId,
   onEdit,
-  onBackToList,
+  onBack,
 }: FeatureDetailTabProps) {
   const [featureDetail, setFeatureDetail] = useState<FeatureDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Mock data untuk feature detail
-  const mockFeatureDetails: Record<string, FeatureDetail> = {
-    "1": {
-      id: "1",
-      name: "user_management",
-      description: "Mengelola pengguna sistem",
-      isActive: true,
-      createdAt: "2024-01-15",
-      updatedAt: "2024-01-20",
-      roles: [
-        {
-          id: "1",
-          name: "Admin",
-          description: "Full system administrator access",
-          canCreate: true,
-          canRead: true,
-          canUpdate: true,
-          canDelete: true,
-          assignedAt: "2024-01-15",
+  /**
+   * Fetch detail feature dari API
+   * @param id - ID feature yang akan diambil (number)
+   * @returns Promise<FeatureDetail | null> - Detail feature atau null jika tidak ditemukan
+   */
+  const fetchFeatureDetail = async (id: number): Promise<FeatureDetail | null> => {
+    try {
+      const response = await fetch(`/api/rbac/features/${id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        {
-          id: "2",
-          name: "Manager",
-          description: "Department management access",
-          canCreate: true,
-          canRead: true,
-          canUpdate: true,
-          canDelete: false,
-          assignedAt: "2024-01-16",
-        },
-        {
-          id: "3",
-          name: "Editor",
-          description: "Content editing access",
-          canCreate: false,
-          canRead: true,
-          canUpdate: true,
-          canDelete: false,
-          assignedAt: "2024-01-17",
-        },
-      ],
-      policies: [
-        {
-          id: "1",
-          name: "Admin Full Access",
-          description: "Administrators have full access to user management",
-          type: "allow",
-          conditions: ["role:admin", "feature:user_management"],
-        },
-        {
-          id: "2",
-          name: "Department Restriction",
-          description: "Managers can only manage users in their department",
-          type: "allow",
-          conditions: ["role:manager", "department:same"],
-        },
-        {
-          id: "3",
-          name: "Guest Restriction",
-          description: "Guest users cannot access user management",
-          type: "deny",
-          conditions: ["role:guest", "feature:user_management"],
-        },
-      ],
-    },
-    "2": {
-      id: "2",
-      name: "article_management",
-      description: "Mengelola artikel dan konten",
-      isActive: true,
-      createdAt: "2024-01-16",
-      updatedAt: "2024-01-18",
-      roles: [
-        {
-          id: "1",
-          name: "Admin",
-          description: "Full system administrator access",
-          canCreate: true,
-          canRead: true,
-          canUpdate: true,
-          canDelete: true,
-          assignedAt: "2024-01-16",
-        },
-        {
-          id: "2",
-          name: "Editor",
-          description: "Content editing access",
-          canCreate: true,
-          canRead: true,
-          canUpdate: true,
-          canDelete: false,
-          assignedAt: "2024-01-16",
-        },
-      ],
-      policies: [
-        {
-          id: "1",
-          name: "Editor Content Access",
-          description: "Editors can manage articles but not delete",
-          type: "allow",
-          conditions: ["role:editor", "action:create,read,update"],
-        },
-        {
-          id: "2",
-          name: "Published Article Protection",
-          description: "Published articles require admin approval to modify",
-          type: "deny",
-          conditions: ["status:published", "role:!admin"],
-        },
-      ],
-    },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.warn(`Feature dengan ID ${id} tidak ditemukan`);
+          return null;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Gagal mengambil detail feature');
+      }
+
+      return result.data;
+    } catch (error) {
+      console.error('Error fetching feature detail:', error);
+      throw error;
+    }
   };
 
   /**
@@ -194,10 +116,8 @@ export function FeatureDetailTab({
 
       setIsLoading(true);
       try {
-        // Simulasi API call
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        const detail = mockFeatureDetails[featureId];
-        setFeatureDetail(detail || null);
+        const detail = await fetchFeatureDetail(featureId);
+        setFeatureDetail(detail);
       } catch (error) {
         console.error("Error loading feature detail:", error);
         setFeatureDetail(null);
@@ -212,24 +132,24 @@ export function FeatureDetailTab({
   /**
    * Render CRUD permission badges
    */
-  const renderCRUDPermissions = (role: Role) => {
-    const permissions = [
-      { key: "canCreate" as keyof Role, label: "C", title: "Create" },
-      { key: "canRead" as keyof Role, label: "R", title: "Read" },
-      { key: "canUpdate" as keyof Role, label: "U", title: "Update" },
-      { key: "canDelete" as keyof Role, label: "D", title: "Delete" },
+  const renderCRUDPermissions = (permissions: Role['permissions']) => {
+    const permissionList = [
+      { key: "canCreate" as keyof Role['permissions'], label: "C", title: "Create" },
+      { key: "canRead" as keyof Role['permissions'], label: "R", title: "Read" },
+      { key: "canUpdate" as keyof Role['permissions'], label: "U", title: "Update" },
+      { key: "canDelete" as keyof Role['permissions'], label: "D", title: "Delete" },
     ];
 
     return (
       <div className="flex gap-1">
-        {permissions.map(({ key, label, title }) => (
+        {permissionList.map(({ key, label, title }) => (
           <Badge
             key={key}
-            variant={role[key] ? "default" : "secondary"}
+            variant={permissions[key] ? "default" : "secondary"}
             className="w-6 h-6 p-0 flex items-center justify-center text-xs"
-            title={`${title}: ${role[key] ? "Allowed" : "Denied"}`}
+            title={`${title}: ${permissions[key] ? "Allowed" : "Denied"}`}
           >
-            {role[key] ? (
+            {permissions[key] ? (
               <IconCheck className="h-3 w-3" />
             ) : (
               <IconX className="h-3 w-3" />
@@ -240,16 +160,7 @@ export function FeatureDetailTab({
     );
   };
 
-  /**
-   * Render policy type badge
-   */
-  const renderPolicyType = (type: "allow" | "deny") => {
-    return (
-      <Badge variant={type === "allow" ? "default" : "destructive"}>
-        {type === "allow" ? "Allow" : "Deny"}
-      </Badge>
-    );
-  };
+
 
   if (isLoading) {
     return (
@@ -267,7 +178,7 @@ export function FeatureDetailTab({
         <CardContent className="p-6">
           <div className="text-center">
             <p className="text-muted-foreground mb-4">Feature not found</p>
-            <Button onClick={onBackToList} variant="outline">
+            <Button onClick={onBack} variant="outline">
               <IconArrowLeft className="mr-2 h-4 w-4" />
               Back to List
             </Button>
@@ -291,14 +202,14 @@ export function FeatureDetailTab({
               <CardDescription>{featureDetail.description}</CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant={featureDetail.isActive ? "default" : "secondary"}>
-                {featureDetail.isActive ? "Active" : "Inactive"}
+              <Badge variant="default">
+                Active
               </Badge>
-              <Button onClick={() => onEdit(featureDetail.id)}>
+              <Button onClick={onEdit}>
                 <IconEdit className="mr-2 h-4 w-4" />
                 Edit Feature
               </Button>
-              <Button onClick={onBackToList} variant="outline">
+              <Button onClick={onBack} variant="outline">
                 <IconArrowLeft className="mr-2 h-4 w-4" />
                 Back to List
               </Button>
@@ -306,13 +217,8 @@ export function FeatureDetailTab({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="font-medium">Created:</span> {featureDetail.createdAt}
-            </div>
-            <div>
-              <span className="font-medium">Updated:</span> {featureDetail.updatedAt}
-            </div>
+          <div className="text-sm">
+            <span className="font-medium">Created:</span> {new Date(featureDetail.createdAt).toLocaleDateString('id-ID')}
           </div>
         </CardContent>
       </Card>
@@ -347,9 +253,9 @@ export function FeatureDetailTab({
                   featureDetail.roles.map((role) => (
                     <TableRow key={role.id}>
                       <TableCell className="font-medium">{role.name}</TableCell>
-                      <TableCell>{role.description}</TableCell>
-                      <TableCell>{renderCRUDPermissions(role)}</TableCell>
-                      <TableCell>{role.assignedAt}</TableCell>
+                      <TableCell>Role dengan akses ke feature ini</TableCell>
+                      <TableCell>{renderCRUDPermissions(role.permissions)}</TableCell>
+                      <TableCell>{new Date(featureDetail.createdAt).toLocaleDateString('id-ID')}</TableCell>
                     </TableRow>
                   ))
                 )}
@@ -372,10 +278,10 @@ export function FeatureDetailTab({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Policy Name</TableHead>
+                  <TableHead>Policy Rule</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Conditions</TableHead>
+                  <TableHead>Created</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -388,17 +294,19 @@ export function FeatureDetailTab({
                 ) : (
                   featureDetail.policies.map((policy) => (
                     <TableRow key={policy.id}>
-                      <TableCell className="font-medium">{policy.name}</TableCell>
-                      <TableCell>{policy.description}</TableCell>
-                      <TableCell>{renderPolicyType(policy.type)}</TableCell>
+                      <TableCell className="font-medium">
+                        {policy.attribute} {policy.operator} {policy.value}
+                      </TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {policy.conditions.map((condition, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {condition}
-                            </Badge>
-                          ))}
-                        </div>
+                        {policy.description || "Policy ABAC untuk kontrol akses"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="default">ABAC</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs text-gray-500">
+                          {new Date(policy.createdAt).toLocaleDateString('id-ID')}
+                        </span>
                       </TableCell>
                     </TableRow>
                   ))

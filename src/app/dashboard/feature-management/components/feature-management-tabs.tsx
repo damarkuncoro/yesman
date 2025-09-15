@@ -5,6 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/shadcn/ui
 import { FeatureListTab } from "./feature-list-tab";
 import { FeatureDetailTab } from "./feature-detail-tab";
 import { FeatureCreateEditTab } from "./feature-create-edit-tab";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 /**
  * Komponen utama untuk mengelola tab-tab Feature Management
@@ -12,13 +14,14 @@ import { FeatureCreateEditTab } from "./feature-create-edit-tab";
  */
 export function FeatureManagementTabs() {
   const [activeTab, setActiveTab] = useState("list");
-  const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
+  const [selectedFeatureId, setSelectedFeatureId] = useState<number | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
+  const { accessToken } = useAuth();
 
   /**
    * Handler untuk memilih feature dari list
    */
-  const handleFeatureSelect = (featureId: string) => {
+  const handleFeatureSelect = (featureId: number) => {
     setSelectedFeatureId(featureId);
     setActiveTab("detail");
   };
@@ -26,7 +29,7 @@ export function FeatureManagementTabs() {
   /**
    * Handler untuk edit feature
    */
-  const handleFeatureEdit = (featureId: string) => {
+  const handleFeatureEdit = (featureId: number) => {
     setSelectedFeatureId(featureId);
     setIsEditMode(true);
     setActiveTab("create-edit");
@@ -42,12 +45,59 @@ export function FeatureManagementTabs() {
   };
 
   /**
-   * Handler untuk kembali ke list
+   * Handler untuk kembali ke list setelah operasi berhasil
    */
-  const handleBackToList = () => {
+  const handleSuccess = () => {
+    setActiveTab("list");
     setSelectedFeatureId(null);
     setIsEditMode(false);
+  };
+
+  /**
+   * Handler untuk membatalkan operasi dan kembali ke tab list
+   */
+  const handleCancel = () => {
     setActiveTab("list");
+    setSelectedFeatureId(null);
+    setIsEditMode(false);
+  };
+
+  /**
+   * Handler untuk menghapus feature
+   */
+  const handleFeatureDelete = async (featureId: number) => {
+    if (!accessToken) {
+      toast.error("Authentication required");
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/rbac/features/${featureId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete feature');
+      }
+
+      toast.success('Feature deleted successfully');
+      
+      // If we're viewing the deleted feature, go back to list
+      if (selectedFeatureId === featureId) {
+        setActiveTab("list");
+        setSelectedFeatureId(null);
+        setIsEditMode(false);
+      }
+    } catch (error) {
+      console.error('Error deleting feature:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to delete feature');
+      throw error; // Re-throw to let FeatureListTab handle the error state
+    }
   };
 
   return (
@@ -67,23 +117,24 @@ export function FeatureManagementTabs() {
           onFeatureSelect={handleFeatureSelect}
           onFeatureEdit={handleFeatureEdit}
           onFeatureCreate={handleFeatureCreate}
+          onFeatureDelete={handleFeatureDelete}
         />
       </TabsContent>
 
       <TabsContent value="detail" className="mt-6">
         <FeatureDetailTab
           featureId={selectedFeatureId}
-          onEdit={handleFeatureEdit}
-          onBackToList={handleBackToList}
+          onEdit={() => handleFeatureEdit(selectedFeatureId!)}
+          onBack={() => setActiveTab("list")}
         />
       </TabsContent>
 
       <TabsContent value="create-edit" className="mt-6">
         <FeatureCreateEditTab
-          featureId={isEditMode ? selectedFeatureId : null}
+          featureId={selectedFeatureId}
           isEditMode={isEditMode}
-          onSuccess={handleBackToList}
-          onCancel={handleBackToList}
+          onSuccess={handleSuccess}
+          onCancel={handleCancel}
         />
       </TabsContent>
     </Tabs>

@@ -45,7 +45,7 @@ interface FeatureFormData {
 }
 
 interface FeatureCreateEditTabProps {
-  featureId: string | null;
+  featureId: number | null;
   isEditMode: boolean;
   onSuccess: () => void;
   onCancel: () => void;
@@ -70,109 +70,69 @@ export function FeatureCreateEditTab({
   const [availableRoles, setAvailableRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingRoles, setIsLoadingRoles] = useState(false);
 
-  // Mock data untuk available roles
-  const mockAvailableRoles: Role[] = [
-    {
-      id: "1",
-      name: "Admin",
-      description: "Full system administrator access",
-      canCreate: true,
-      canRead: true,
-      canUpdate: true,
-      canDelete: true,
-    },
-    {
-      id: "2",
-      name: "Manager",
-      description: "Department management access",
-      canCreate: true,
-      canRead: true,
-      canUpdate: true,
-      canDelete: false,
-    },
-    {
-      id: "3",
-      name: "Editor",
-      description: "Content editing access",
-      canCreate: true,
-      canRead: true,
-      canUpdate: true,
-      canDelete: false,
-    },
-    {
-      id: "4",
-      name: "Viewer",
-      description: "Read-only access",
-      canCreate: false,
-      canRead: true,
-      canUpdate: false,
-      canDelete: false,
-    },
-    {
-      id: "5",
-      name: "Analyst",
-      description: "Data analysis access",
-      canCreate: false,
-      canRead: true,
-      canUpdate: false,
-      canDelete: false,
-    },
-  ];
-
-  // Mock data untuk existing features
-  const mockExistingFeatures: Record<string, FeatureFormData> = {
-    "1": {
-      name: "user_management",
-      description: "Mengelola pengguna sistem",
-      isActive: true,
-      roles: [
-        {
-          id: "1",
-          name: "Admin",
-          description: "Full system administrator access",
-          canCreate: true,
-          canRead: true,
-          canUpdate: true,
-          canDelete: true,
-        },
-        {
-          id: "2",
-          name: "Manager",
-          description: "Department management access",
-          canCreate: true,
-          canRead: true,
-          canUpdate: true,
-          canDelete: false,
-        },
-      ],
-    },
-    "2": {
-      name: "article_management",
-      description: "Mengelola artikel dan konten",
-      isActive: true,
-      roles: [
-        {
-          id: "1",
-          name: "Admin",
-          description: "Full system administrator access",
-          canCreate: true,
-          canRead: true,
-          canUpdate: true,
-          canDelete: true,
-        },
-        {
-          id: "3",
-          name: "Editor",
-          description: "Content editing access",
-          canCreate: true,
-          canRead: true,
-          canUpdate: true,
-          canDelete: false,
-        },
-      ],
-    },
+  /**
+   * Mengambil data roles dari API
+   */
+  const fetchRoles = async (): Promise<Role[]> => {
+    try {
+      const response = await fetch('/api/rbac/roles');
+      if (!response.ok) {
+        throw new Error('Failed to fetch roles');
+      }
+      const result = await response.json();
+      return result.success ? result.data.map((role: any) => ({
+        id: role.id.toString(),
+        name: role.name,
+        description: role.description || `Role ${role.name}`,
+        canCreate: true,
+        canRead: true,
+        canUpdate: true,
+        canDelete: false,
+      })) : [];
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+      throw error;
+    }
   };
+
+  /**
+   * Mengambil detail feature dari API untuk mode edit
+   */
+  const fetchFeatureDetail = async (id: number): Promise<any> => {
+    try {
+      const response = await fetch(`/api/rbac/features/${id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch feature detail');
+      }
+      const result = await response.json();
+      return result.success ? result.data : null;
+    } catch (error) {
+      console.error('Error fetching feature detail:', error);
+      throw error;
+    }
+  };
+
+
+
+  // Load roles data saat komponen dimount
+  useEffect(() => {
+    const loadRoles = async () => {
+      setIsLoadingRoles(true);
+      try {
+        const roles = await fetchRoles();
+        setAvailableRoles(roles);
+      } catch (error) {
+        console.error('Failed to load roles:', error);
+        toast.error("Failed to load roles");
+      } finally {
+        setIsLoadingRoles(false);
+      }
+    };
+
+    loadRoles();
+  }, []);
 
   /**
    * Load data saat komponen dimount atau featureId berubah
@@ -181,15 +141,21 @@ export function FeatureCreateEditTab({
     const loadData = async () => {
       setIsLoading(true);
       try {
-        // Load available roles
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        setAvailableRoles(mockAvailableRoles);
-
         // Load existing feature data jika edit mode
         if (isEditMode && featureId) {
-          const existingData = mockExistingFeatures[featureId];
-          if (existingData) {
-            setFormData(existingData);
+          try {
+            const existingData = await fetchFeatureDetail(featureId);
+            if (existingData) {
+              setFormData({
+                name: existingData.name,
+                description: existingData.description,
+                isActive: existingData.isActive,
+                roles: existingData.roles || []
+              });
+            }
+          } catch (error) {
+            console.error('Failed to load feature detail:', error);
+            toast.error('Failed to load feature detail');
           }
         } else {
           // Reset form untuk create mode
@@ -286,15 +252,57 @@ export function FeatureCreateEditTab({
 
     setIsSaving(true);
     try {
-      // Simulasi API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      const action = isEditMode ? "updated" : "created";
-      toast.success(`Feature ${action} successfully`);
-      onSuccess();
+      const featureData = {
+        name: formData.name,
+        description: formData.description,
+        isActive: formData.isActive,
+        roles: formData.roles.map(role => ({
+          roleId: role.id,
+          permissions: {
+            canCreate: role.canCreate,
+            canRead: role.canRead,
+            canUpdate: role.canUpdate,
+            canDelete: role.canDelete,
+          }
+        }))
+      };
+      
+      let response;
+      if (isEditMode && featureId) {
+        response = await fetch(`/api/rbac/features/${featureId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(featureData),
+        });
+      } else {
+        response = await fetch('/api/rbac/features', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(featureData),
+        });
+      }
+      
+      if (!response.ok) {
+        throw new Error('Failed to save feature');
+      }
+      
+      const result = await response.json();
+      if (result.success) {
+        const action = isEditMode ? "updated" : "created";
+        toast.success(`Feature ${action} successfully`);
+        onSuccess();
+      } else {
+        throw new Error(result.message || 'Failed to save feature');
+      }
     } catch (error) {
       console.error("Error saving feature:", error);
       toast.error("Failed to save feature");
+      
+
     } finally {
       setIsSaving(false);
     }
@@ -417,7 +425,10 @@ export function FeatureCreateEditTab({
             <div>
               <Label className="text-base font-medium">Available Roles</Label>
               <div className="mt-2 space-y-2">
-                {availableRoles.map((role) => (
+                {isLoadingRoles ? (
+                  <div className="text-sm text-gray-500">Loading roles...</div>
+                ) : (
+                  availableRoles.map((role) => (
                   <div key={role.id} className="flex items-center space-x-2">
                     <Checkbox
                       id={`role-${role.id}`}
@@ -435,7 +446,8 @@ export function FeatureCreateEditTab({
                       </div>
                     </Label>
                   </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 

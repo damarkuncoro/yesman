@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/shadcn/ui/button"
 import { Input } from "@/components/shadcn/ui/input"
 import { Badge } from "@/components/shadcn/ui/badge"
@@ -29,93 +30,22 @@ import {
 import { IconSearch, IconUserPlus, IconUserMinus, IconCalendar } from "@tabler/icons-react"
 import { toast } from "sonner"
 
-// Mock data untuk role options
-const mockRoles = [
-  { id: "1", name: "Admin" },
-  { id: "2", name: "Editor" },
-  { id: "3", name: "Viewer" },
-  { id: "4", name: "Manager" },
-  { id: "5", name: "Analyst" }
-]
+// Interface untuk Role
+interface Role {
+  id: string
+  name: string
+}
 
-// Mock data untuk user mappings
-const mockUserMappings = {
-  "1": [ // Admin role
-    {
-      id: "1",
-      username: "john.doe",
-      email: "john.doe@company.com",
-      fullName: "John Doe",
-      status: "active",
-      assignedAt: "2024-01-15",
-      assignedBy: "system",
-      expiresAt: null
-    },
-    {
-      id: "2",
-      username: "jane.smith",
-      email: "jane.smith@company.com",
-      fullName: "Jane Smith",
-      status: "active",
-      assignedAt: "2024-01-18",
-      assignedBy: "john.doe",
-      expiresAt: null
-    },
-    {
-      id: "3",
-      username: "admin.user",
-      email: "admin@company.com",
-      fullName: "Admin User",
-      status: "active",
-      assignedAt: "2024-01-10",
-      assignedBy: "system",
-      expiresAt: null
-    }
-  ],
-  "2": [ // Editor role
-    {
-      id: "4",
-      username: "editor1",
-      email: "editor1@company.com",
-      fullName: "Editor One",
-      status: "active",
-      assignedAt: "2024-01-20",
-      assignedBy: "john.doe",
-      expiresAt: "2024-12-31"
-    },
-    {
-      id: "5",
-      username: "editor2",
-      email: "editor2@company.com",
-      fullName: "Editor Two",
-      status: "active",
-      assignedAt: "2024-01-22",
-      assignedBy: "jane.smith",
-      expiresAt: null
-    }
-  ],
-  "3": [ // Viewer role
-    {
-      id: "6",
-      username: "viewer1",
-      email: "viewer1@company.com",
-      fullName: "Viewer One",
-      status: "active",
-      assignedAt: "2024-01-25",
-      assignedBy: "john.doe",
-      expiresAt: "2024-06-30"
-    },
-    {
-      id: "7",
-      username: "viewer2",
-      email: "viewer2@company.com",
-      fullName: "Viewer Two",
-      status: "inactive",
-      assignedAt: "2024-01-20",
-      assignedBy: "jane.smith",
-      expiresAt: "2024-03-31"
-    }
-  ]
+// Interface untuk User Mapping
+interface UserMapping {
+  id: string
+  username: string
+  email: string
+  fullName: string
+  status: string
+  assignedAt: string
+  assignedBy: string
+  expiresAt: string | null
 }
 
 interface RoleUserMappingTabProps {
@@ -127,27 +57,90 @@ interface RoleUserMappingTabProps {
  * Menampilkan user-user yang memiliki role tertentu
  */
 export function RoleUserMappingTab({ selectedRoleId }: RoleUserMappingTabProps) {
+  const { accessToken } = useAuth()
   const [currentRoleId, setCurrentRoleId] = useState<string>(selectedRoleId || "")
   const [searchTerm, setSearchTerm] = useState("")
-  const [userMappings, setUserMappings] = useState<any[]>([])
+  const [userMappings, setUserMappings] = useState<UserMapping[]>([])
+  const [availableRoles, setAvailableRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingRoles, setLoadingRoles] = useState(false)
+
+  /**
+   * Fetch available roles dari API
+   */
+  const fetchRoles = async () => {
+    if (!accessToken) return
+
+    try {
+      setLoadingRoles(true)
+      const response = await fetch('/api/roles', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch roles')
+      }
+
+      const data = await response.json()
+      setAvailableRoles(data.roles || [])
+    } catch (error) {
+      console.error('Error fetching roles:', error)
+      toast.error('Failed to load roles')
+    } finally {
+      setLoadingRoles(false)
+    }
+  }
+
+  /**
+   * Fetch user mappings berdasarkan role yang dipilih
+   */
+  const fetchUserMappings = async (roleId: string) => {
+    if (!accessToken || !roleId) return
+
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/roles/${roleId}/users`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user mappings')
+      }
+
+      const data = await response.json()
+      setUserMappings(data.users || [])
+    } catch (error) {
+      console.error('Error fetching user mappings:', error)
+      toast.error('Failed to load user mappings')
+      setUserMappings([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /**
+   * Load roles saat komponen mount
+   */
+  useEffect(() => {
+    fetchRoles()
+  }, [accessToken])
 
   /**
    * Load user mappings berdasarkan role yang dipilih
    */
   useEffect(() => {
     if (currentRoleId) {
-      setLoading(true)
-      // Simulasi API call
-      setTimeout(() => {
-        const mappings = mockUserMappings[currentRoleId as keyof typeof mockUserMappings] || []
-        setUserMappings(mappings)
-        setLoading(false)
-      }, 500)
+      fetchUserMappings(currentRoleId)
     } else {
       setUserMappings([])
     }
-  }, [currentRoleId])
+  }, [currentRoleId, accessToken])
 
   /**
    * Update currentRoleId ketika selectedRoleId berubah
@@ -227,14 +220,29 @@ export function RoleUserMappingTab({ selectedRoleId }: RoleUserMappingTabProps) 
    * Handle remove user from role
    */
   const handleRemoveUser = async (userId: string, username: string) => {
+    if (!accessToken || !currentRoleId) {
+      toast.error('Authentication required')
+      return
+    }
+
     try {
-      // Simulasi API call
-      await new Promise(resolve => setTimeout(resolve, 500))
+      const response = await fetch(`/api/roles/${currentRoleId}/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to remove user from role')
+      }
       
       setUserMappings(prev => prev.filter(user => user.id !== userId))
       toast.success(`User ${username} removed from role successfully`)
     } catch (error) {
-      toast.error("Failed to remove user from role")
+      console.error('Error removing user from role:', error)
+      toast.error('Failed to remove user from role')
     }
   }
 
@@ -242,7 +250,7 @@ export function RoleUserMappingTab({ selectedRoleId }: RoleUserMappingTabProps) 
    * Get selected role name
    */
   const getSelectedRoleName = () => {
-    const role = mockRoles.find(r => r.id === currentRoleId)
+    const role = availableRoles.find(r => r.id === currentRoleId)
     return role?.name || "Unknown Role"
   }
 
@@ -259,12 +267,12 @@ export function RoleUserMappingTab({ selectedRoleId }: RoleUserMappingTabProps) 
         <CardContent>
           <div className="flex items-center gap-4">
             <div className="flex-1">
-              <Select value={currentRoleId} onValueChange={setCurrentRoleId}>
+              <Select value={currentRoleId} onValueChange={setCurrentRoleId} disabled={loadingRoles}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a role to view users" />
+                  <SelectValue placeholder={loadingRoles ? "Loading roles..." : "Select a role to view users"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockRoles.map((role) => (
+                  {availableRoles.map((role) => (
                     <SelectItem key={role.id} value={role.id}>
                       {role.name}
                     </SelectItem>

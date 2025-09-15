@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { featureService } from "@/services";
+import { roleFeatureRepository } from "@/repositories";
 import { authorizationMiddleware } from "@/middleware/authorizationMiddleware";
+import { createFeatureSchema } from "@/services/rbac/types";
 
 /**
  * GET /api/rbac/features
- * Mengambil semua feature dalam sistem
+ * Mengambil semua feature dengan roleCount (hanya admin)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -17,11 +19,23 @@ export async function GET(request: NextRequest) {
       return authResult; // Return error response
     }
 
+    // Ambil semua features
     const features = await featureService.getAllFeatures();
     
+    // Tambahkan roleCount untuk setiap feature
+    const featuresWithRoleCount = await Promise.all(
+      features.map(async (feature) => {
+        const roleCount = await roleFeatureRepository.countRolesByFeature(feature.id);
+        return {
+          ...feature,
+          roleCount
+        };
+      })
+    );
+
     return NextResponse.json({
       success: true,
-      data: features
+      data: featuresWithRoleCount
     });
   } catch (error) {
     console.error('Error fetching features:', error);

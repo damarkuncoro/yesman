@@ -13,21 +13,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/shadcn/ui/table";
-import { IconPlus, IconSearch, IconEdit, IconEye } from "@tabler/icons-react";
+import { IconPlus, IconSearch, IconEdit, IconEye, IconTrash } from "@tabler/icons-react";
 
 interface Feature {
-  id: string;
+  id: number;
   name: string;
   description: string;
+  category?: string | null;
   roleCount: number;
-  isActive: boolean;
-  createdAt: string;
+  createdAt: Date;
 }
 
 interface FeatureListTabProps {
-  onFeatureSelect: (featureId: string) => void;
-  onFeatureEdit: (featureId: string) => void;
+  onFeatureSelect: (featureId: number) => void;
+  onFeatureEdit: (featureId: number) => void;
   onFeatureCreate: () => void;
+  onFeatureDelete: (featureId: number) => Promise<void>;
 }
 
 /**
@@ -38,54 +39,28 @@ export function FeatureListTab({
   onFeatureSelect,
   onFeatureEdit,
   onFeatureCreate,
+  onFeatureDelete,
 }: FeatureListTabProps) {
   const [features, setFeatures] = useState<Feature[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Mock data untuk development
-  const mockFeatures: Feature[] = [
-    {
-      id: "1",
-      name: "user_management",
-      description: "Mengelola pengguna sistem",
-      roleCount: 3,
-      isActive: true,
-      createdAt: "2024-01-15",
-    },
-    {
-      id: "2",
-      name: "article_management",
-      description: "Mengelola artikel dan konten",
-      roleCount: 2,
-      isActive: true,
-      createdAt: "2024-01-16",
-    },
-    {
-      id: "3",
-      name: "role_management",
-      description: "Mengelola role dan permission",
-      roleCount: 1,
-      isActive: true,
-      createdAt: "2024-01-17",
-    },
-    {
-      id: "4",
-      name: "report_management",
-      description: "Mengelola laporan dan analytics",
-      roleCount: 2,
-      isActive: false,
-      createdAt: "2024-01-18",
-    },
-    {
-      id: "5",
-      name: "system_settings",
-      description: "Pengaturan sistem aplikasi",
-      roleCount: 1,
-      isActive: true,
-      createdAt: "2024-01-19",
-    },
-  ];
+  /**
+   * Mengambil data features dari API
+   */
+  const fetchFeatures = async (): Promise<Feature[]> => {
+    try {
+      const response = await fetch('/api/rbac/features');
+      if (!response.ok) {
+        throw new Error('Failed to fetch features');
+      }
+      const result = await response.json();
+      return result.success ? result.data : [];
+    } catch (error) {
+      console.error('Error fetching features:', error);
+      throw error;
+    }
+  };
 
   /**
    * Load data features saat komponen dimount
@@ -94,9 +69,8 @@ export function FeatureListTab({
     const loadFeatures = async () => {
       setIsLoading(true);
       try {
-        // Simulasi API call
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        setFeatures(mockFeatures);
+        const featuresData = await fetchFeatures();
+        setFeatures(featuresData);
       } catch (error) {
         console.error("Error loading features:", error);
       } finally {
@@ -119,15 +93,32 @@ export function FeatureListTab({
   /**
    * Handler untuk view detail feature
    */
-  const handleViewDetail = (featureId: string) => {
+  const handleViewDetail = (featureId: number) => {
     onFeatureSelect(featureId);
   };
 
   /**
    * Handler untuk edit feature
    */
-  const handleEdit = (featureId: string) => {
+  const handleEdit = (featureId: number) => {
     onFeatureEdit(featureId);
+  };
+
+  /**
+   * Handler untuk delete feature
+   */
+  const handleDelete = async (featureId: number) => {
+    if (window.confirm('Are you sure you want to delete this feature?')) {
+      try {
+        await onFeatureDelete(featureId);
+        // Refresh data setelah delete berhasil
+        const featuresData = await fetchFeatures();
+        setFeatures(featuresData);
+      } catch (error) {
+        // Error handling sudah dilakukan di parent component
+        console.error('Error deleting feature:', error);
+      }
+    }
   };
 
   if (isLoading) {
@@ -185,7 +176,11 @@ export function FeatureListTab({
                 </TableRow>
               ) : (
                 filteredFeatures.map((feature) => (
-                  <TableRow key={feature.id}>
+                  <TableRow 
+                    key={feature.id} 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleViewDetail(feature.id)}
+                  >
                     <TableCell className="font-medium">
                       {feature.name}
                     </TableCell>
@@ -196,28 +191,42 @@ export function FeatureListTab({
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={feature.isActive ? "default" : "secondary"}
-                      >
-                        {feature.isActive ? "Active" : "Inactive"}
+                      <Badge variant="default">
+                        Active
                       </Badge>
                     </TableCell>
-                    <TableCell>{feature.createdAt}</TableCell>
+                    <TableCell>{new Date(feature.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleViewDetail(feature.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewDetail(feature.id);
+                          }}
                         >
                           <IconEye size={16} />
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleEdit(feature.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEdit(feature.id);
+                          }}
                         >
                           <IconEdit size={16} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(feature.id);
+                          }}
+                        >
+                          <IconTrash size={16} />
                         </Button>
                       </div>
                     </TableCell>
