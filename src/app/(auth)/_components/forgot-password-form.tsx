@@ -29,7 +29,7 @@ export function ForgotPasswordForm({
                 <Input
                   id="email"
                   type="email"
-                  placeholder="m@example.com"
+                  placeholder="mail@example.com"
                   required
                 />
               </div>

@@ -17,6 +17,14 @@ export class RouteFeatureService {
   }
 
   /**
+   * Mengambil semua route-feature mappings dengan detail feature
+   * @returns Promise<Array> - Array route-feature mappings dengan nama feature
+   */
+  async getAllRouteMappingsWithFeatures(): Promise<Array<RouteFeature & { feature: { name: string } | null }>> {
+    return await routeFeatureRepository.findAllWithFeatures();
+  }
+
+  /**
    * Mengambil route-feature mapping berdasarkan ID
    * @param id - ID route-feature mapping
    * @returns Promise<RouteFeature | undefined> - RouteFeature jika ditemukan

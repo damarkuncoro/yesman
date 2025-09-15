@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { userRoleService } from "@/services";
-import { authorizationMiddleware } from "@/middleware/authorizationMiddleware";
+import { withFeature, getUserFromRequest } from "@/lib/withFeature";
 import { z } from "zod";
 
 /**
@@ -11,25 +11,21 @@ const unassignRoleSchema = z.object({
 });
 
 /**
- * DELETE /api/rbac/users/[id]/roles/unassign
- * Unassign role dari user tertentu
+ * Handler untuk unassign role dari user tertentu
+ * Memerlukan permission 'user_management' dengan action 'update'
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+async function handleUnassignRole(
+  request: NextRequest
+): Promise<NextResponse> {
   try {
-    // Authorization check - basic authentication
-    const authResult = await authorizationMiddleware.authorize(request);
-    
-    if (authResult instanceof NextResponse) {
-      return authResult; // Return error response
-    }
-    
-    // Untuk sementara, izinkan semua user yang sudah terautentikasi
-    // Nanti bisa ditambahkan logika authorization yang lebih spesifik jika diperlukan
+    const authenticatedUser = getUserFromRequest(request);
+    console.log('Authenticated user unassigning role:', authenticatedUser);
 
-    const { id } = await params;
+    // Extract user ID dari URL path
+    const url = new URL(request.url);
+    const pathSegments = url.pathname.split('/');
+    const userIdIndex = pathSegments.findIndex(segment => segment === 'users') + 1;
+    const id = pathSegments[userIdIndex];
     const userId = parseInt(id);
     if (isNaN(userId)) {
       return NextResponse.json(
@@ -47,7 +43,7 @@ export async function DELETE(
       return NextResponse.json({
         success: true,
         message: 'Role berhasil di-unassign dari user'
-      });
+      }, { status: 200 });
     } else {
       return NextResponse.json(
         { 
@@ -57,26 +53,30 @@ export async function DELETE(
         { status: 500 }
       );
     }
-  } catch (error) {
-    console.error('Error unassigning role:', error);
     
+  } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          message: 'Data tidak valid',
-          errors: error.issues
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        message: 'Data tidak valid',
+        errors: error.issues
+      }, { status: 400 });
     }
     
-    return NextResponse.json(
-      { 
-        success: false, 
-        message: error instanceof Error ? error.message : 'Terjadi kesalahan saat unassign role' 
-      },
-      { status: 400 }
-    );
+    if (error instanceof Error) {
+      return NextResponse.json({
+        success: false,
+        message: error.message,
+      }, { status: 400 });
+    }
+    
+    console.error('Unassign role error:', error);
+    return NextResponse.json({
+      success: false,
+      message: 'Terjadi kesalahan saat unassign role'
+    }, { status: 500 });
   }
 }
+
+// Export handler dengan withFeature wrapper untuk otorisasi
+export const DELETE = withFeature({ feature: 'user_management', action: 'update' })(handleUnassignRole);

@@ -117,13 +117,13 @@ export function RouteListTab({
         
         const data = await response.json();
         if (data.success) {
-          // Transform data untuk UI
+          // Transform data untuk UI dengan feature name yang benar
           const transformedRoutes: Route[] = data.data.routeFeatures.map((item: any) => ({
             id: item.id,
             path: item.path,
             method: item.method,
             featureId: item.featureId,
-            featureName: `Feature ${item.featureId}`, // Placeholder, bisa diambil dari API features
+            featureName: item.feature?.name || 'Unknown Feature', // Gunakan nama feature dari database
             description: `Route ${item.method || 'ALL'} ${item.path}`,
             isActive: true,
             roleCount: 0, // Placeholder

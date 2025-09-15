@@ -1,49 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { rbacService } from '@/services';
-import { authorizationMiddleware } from '@/middleware/authorizationMiddleware';
+import { withFeature, getUserFromRequest } from '@/lib/withFeature';
 
 /**
- * GET /api/rbac/user-permissions/[userId]
- * Mengambil permissions untuk user tertentu
+ * Handler untuk mengambil permissions untuk user tertentu
+ * Memerlukan permission 'user_management' dengan action 'read'
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ userId: string }> }
-) {
+async function handleGetUserPermissions(
+  request: NextRequest
+): Promise<NextResponse> {
   try {
-    // Authorization check - user harus login
-    const authResult = await authorizationMiddleware.authorize(request);
-    
-    if (authResult instanceof NextResponse) {
-      return authResult; // Return error response
-    }
+    const authenticatedUser = getUserFromRequest(request);
+    console.log('Authenticated user accessing user permissions:', authenticatedUser);
 
-    const { userId } = await params;
+    // Extract user ID dari URL path
+    const url = new URL(request.url);
+    const pathSegments = url.pathname.split('/');
+    const userId = pathSegments[pathSegments.length - 1];
     
     if (!userId) {
       return NextResponse.json(
-        { error: 'User ID is required' },
+        { success: false, message: 'User ID is required' },
         { status: 400 }
-      );
-    }
-
-    // Check authorization - admin bisa akses semua, user hanya bisa akses data sendiri
-    const requestedUserId = parseInt(userId);
-    if (!authResult.hasRole('admin') && authResult.userId !== requestedUserId) {
-      return NextResponse.json(
-        { error: 'Access denied: You can only access your own permissions' },
-        { status: 403 }
       );
     }
 
     const permissions = await rbacService.getUserPermissions(userId);
     
-    return NextResponse.json({ permissions });
+    return NextResponse.json({
+      success: true,
+      data: { permissions }
+    }, { status: 200 });
+    
   } catch (error) {
-    console.error('Error fetching user permissions:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch user permissions' },
-      { status: 500 }
-    );
+    if (error instanceof Error) {
+      return NextResponse.json({
+        success: false,
+        message: error.message,
+      }, { status: 400 });
+    }
+    
+    console.error('Get user permissions error:', error);
+    return NextResponse.json({
+      success: false,
+      message: 'Failed to fetch user permissions'
+    }, { status: 500 });
   }
 }
+
+// Export handler dengan withFeature wrapper untuk otorisasi
+export const GET = withFeature({ feature: 'user_management', action: 'read' })(handleGetUserPermissions);

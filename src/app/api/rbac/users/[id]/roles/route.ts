@@ -1,24 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { userRoleService } from "@/services";
-import { authorizationMiddleware } from "@/middleware/authorizationMiddleware";
+import { withFeature, getUserFromRequest } from "@/lib/withFeature";
 
 /**
- * GET /api/rbac/users/[id]/roles
- * Mengambil semua role untuk user tertentu
+ * Handler untuk mengambil semua role untuk user tertentu
+ * Memerlukan permission 'user_management' dengan action 'read'
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+async function handleGetUserRoles(
+  request: NextRequest
+): Promise<NextResponse> {
   try {
-    // Basic authorization check
-    const authResult = await authorizationMiddleware.authorize(request);
-    
-    if (authResult instanceof NextResponse) {
-      return authResult; // Return error response
-    }
+    const authenticatedUser = getUserFromRequest(request);
+    console.log('Authenticated user accessing user roles:', authenticatedUser);
 
-    const { id } = await params;
+    // Extract user ID dari URL path
+    const url = new URL(request.url);
+    const pathSegments = url.pathname.split('/');
+    const userIdIndex = pathSegments.findIndex(segment => segment === 'users') + 1;
+    const id = pathSegments[userIdIndex];
     const userId = parseInt(id);
     if (isNaN(userId)) {
       return NextResponse.json(
@@ -27,24 +26,28 @@ export async function GET(
       );
     }
 
-    // Untuk sementara, izinkan semua user yang sudah terautentikasi mengakses endpoint ini
-    // Nanti bisa ditambahkan logika authorization yang lebih spesifik jika diperlukan
-    // User yang sudah login bisa melihat role user lain untuk keperluan management
-
     const userRoles = await userRoleService.getUserRoles(userId);
     
     return NextResponse.json({
       success: true,
       data: userRoles
-    });
+    }, { status: 200 });
+    
   } catch (error) {
-    console.error('Error fetching user roles:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        message: error instanceof Error ? error.message : 'Terjadi kesalahan saat mengambil data role user' 
-      },
-      { status: error instanceof Error && error.message.includes('tidak ditemukan') ? 404 : 500 }
-    );
+    if (error instanceof Error) {
+      return NextResponse.json({
+        success: false,
+        message: error.message,
+      }, { status: error.message.includes('tidak ditemukan') ? 404 : 400 });
+    }
+    
+    console.error('Get user roles error:', error);
+    return NextResponse.json({
+      success: false,
+      message: 'Terjadi kesalahan saat mengambil data role user'
+    }, { status: 500 });
   }
 }
+
+// Export handler dengan withFeature wrapper untuk otorisasi
+export const GET = withFeature({ feature: 'user_management', action: 'read' })(handleGetUserRoles);

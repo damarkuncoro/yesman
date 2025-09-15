@@ -1,6 +1,6 @@
 import { eq, and, count } from "drizzle-orm";
 import { db } from "@/db";
-import { roleFeatures, features } from "@/db/schema";
+import { roleFeatures, features, roles } from "@/db/schema";
 import type { RoleFeature, NewRoleFeature } from "@/db/schema";
 import { BaseRepository, CrudRepository, CountableRepository } from "../base/baseRepository";
 
@@ -84,6 +84,34 @@ export class RoleFeatureRepository extends BaseRepository implements CrudReposit
   async findByFeatureId(featureId: number): Promise<RoleFeature[]> {
     return this.executeWithErrorHandling('find role features by feature ID', async () => {
       return await db!.select().from(roleFeatures).where(eq(roleFeatures.featureId, featureId));
+    });
+  }
+
+  /**
+   * Mencari role feature berdasarkan feature ID dengan detail role (join)
+   * @param featureId - ID feature yang dicari
+   * @returns Promise dengan array role features beserta detail role
+   */
+  async findByFeatureIdWithRoles(featureId: number) {
+    return this.executeWithErrorHandling('find role features with role details by feature ID', async () => {
+      return await db!.select({
+        id: roleFeatures.id,
+        roleId: roleFeatures.roleId,
+        featureId: roleFeatures.featureId,
+        canCreate: roleFeatures.canCreate,
+        canRead: roleFeatures.canRead,
+        canUpdate: roleFeatures.canUpdate,
+        canDelete: roleFeatures.canDelete,
+        role: {
+          id: roles.id,
+          name: roles.name,
+          grantsAll: roles.grantsAll,
+          createdAt: roles.createdAt
+        }
+      })
+      .from(roleFeatures)
+      .innerJoin(roles, eq(roleFeatures.roleId, roles.id))
+      .where(eq(roleFeatures.featureId, featureId));
     });
   }
 

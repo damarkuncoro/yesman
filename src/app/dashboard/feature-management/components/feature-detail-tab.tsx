@@ -100,22 +100,51 @@ export function FeatureDetailTab({
 
       // Mapping data dari backend (snake_case) ke frontend (camelCase)
       const data = result.data;
+      
+      // Debug log untuk melihat struktur data
+      console.log('Feature detail API response:', data);
+      
+      // Coba berbagai kemungkinan struktur data untuk roles
+      let rolesData = [];
+      if (Array.isArray(data.roles)) {
+        rolesData = data.roles;
+      } else if (Array.isArray(data.features)) {
+        rolesData = data.features;
+      } else if (Array.isArray(data.role_features)) {
+        rolesData = data.role_features;
+      } else if (Array.isArray(data.roleFeatures)) {
+        rolesData = data.roleFeatures;
+      }
+      
       return {
         id: data.id,
         name: data.name,
         description: data.description,
         category: data.category,
         createdAt: data.created_at || data.createdAt,
-        roles: Array.isArray(data.features) ? data.features.map((feature: any) => ({
-          id: feature.role_id || feature.roleId,
-          name: feature.role_name || feature.roleName || `Role ${feature.role_id || feature.roleId}`,
-          permissions: {
-            canCreate: feature.can_create ?? feature.canCreate ?? false,
-            canRead: feature.can_read ?? feature.canRead ?? false,
-            canUpdate: feature.can_update ?? feature.canUpdate ?? false,
-            canDelete: feature.can_delete ?? feature.canDelete ?? false,
-          }
-        })) : [],
+        roles: rolesData.map((roleItem: any) => {
+          // Handle berbagai format role data
+          console.log('Role item xxx:', roleItem);
+          
+          // Cek apakah ada nested role object
+          const roleData = roleItem.role || roleItem;
+          
+          const roleId = roleData.role_id || roleData.roleId || roleData.id || roleItem.id;
+          const roleName = roleData.role_name || roleData.roleName || roleData.name || 
+                          roleItem.role_name || roleItem.roleName || roleItem.name || 
+                          `Unknown Role`;
+          
+          return {
+            id: roleId,
+            name: roleName,
+            permissions: {
+              canCreate: roleItem.can_create ?? roleItem.canCreate ?? roleItem.permissions?.canCreate ?? roleData.grantsAll ?? false,
+              canRead: roleItem.can_read ?? roleItem.canRead ?? roleItem.permissions?.canRead ?? roleData.grantsAll ?? false,
+              canUpdate: roleItem.can_update ?? roleItem.canUpdate ?? roleItem.permissions?.canUpdate ?? roleData.grantsAll ?? false,
+              canDelete: roleItem.can_delete ?? roleItem.canDelete ?? roleItem.permissions?.canDelete ?? roleData.grantsAll ?? false,
+            }
+          };
+        }),
         policies: Array.isArray(data.policies) ? data.policies.map((policy: any) => ({
           id: policy.id,
           attribute: policy.attribute,
@@ -301,7 +330,12 @@ export function FeatureDetailTab({
       {/* Roles with Access */}
       <Card>
         <CardHeader>
-          <CardTitle>Roles with Access</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            <span>Roles with Access</span>
+            <Badge variant="secondary" className="ml-2">
+              {featureDetail.roles.length} {featureDetail.roles.length === 1 ? 'role' : 'roles'}
+            </Badge>
+          </CardTitle>
           <CardDescription>
             Role yang memiliki akses ke feature ini dan permission yang dimiliki
           </CardDescription>
@@ -321,16 +355,25 @@ export function FeatureDetailTab({
                 {featureDetail.roles.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-8">
-                      No roles assigned to this feature
+                      <div className="space-y-2">
+                        <div className="text-gray-500">No roles assigned to this feature</div>
+                        <div className="text-sm text-gray-400">
+                          Assign roles to this feature to grant access permissions
+                        </div>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
                   featureDetail.roles.map((role) => (
                     <TableRow key={role.id}>
                       <TableCell className="font-medium">{role.name}</TableCell>
-                      <TableCell>Role dengan akses ke feature ini</TableCell>
+                      <TableCell className="text-gray-600">
+                        {role.id ? `Role ID: ${role.id}` : 'Role dengan akses ke feature ini'}
+                      </TableCell>
                       <TableCell>{renderCRUDPermissions(role.permissions)}</TableCell>
-                      <TableCell>{new Date(featureDetail.createdAt).toLocaleDateString('id-ID')}</TableCell>
+                      <TableCell className="text-gray-500">
+                        {new Date(featureDetail.createdAt).toLocaleDateString('id-ID')}
+                      </TableCell>
                     </TableRow>
                   ))
                 )}

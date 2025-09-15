@@ -79,81 +79,37 @@ export function RouteDetailTab({
    */
   useEffect(() => {
     const loadRouteDetail = async () => {
-      if (!routeId) {
-        setRoute(null);
-        setIsLoading(false);
-        return;
-      }
-
+      if (!routeId) return;
+      
       setIsLoading(true);
       try {
-        // Simulasi API call
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // Ambil detail route dari API
+        const response = await fetch(`/api/rbac/route-features/${routeId}`);
+        const data = await response.json();
         
-        // Data dummy untuk demonstrasi
-        const dummyRoute: RouteDetail = {
-          id: routeId,
-          path: "/api/users/:id",
-          method: "GET",
-          featureName: "User Management",
-          featureId: "user_management",
-          description: "Get user by ID with detailed information",
-          isActive: true,
-          createdAt: "2024-01-15T10:30:00Z",
-          updatedAt: "2024-01-20T14:45:00Z",
-          createdBy: "admin@example.com",
-          policies: [
-            {
-              id: "1",
-              name: "User Access Policy",
-              description: "Allow access to user data with proper authentication",
-              type: "allow",
-              conditions: ["authenticated", "user_scope"],
-            },
-            {
-              id: "2",
-              name: "Rate Limit Policy",
-              description: "Limit requests to 100 per minute",
-              type: "allow",
-              conditions: ["rate_limit:100/min"],
-            },
-          ],
-          roles: [
-            {
-              roleId: "admin",
-              roleName: "Administrator",
-              hasAccess: true,
-              permissions: ["read", "write", "delete"],
-              userCount: 5,
-              lastAccessed: "2024-01-20T09:15:00Z",
-            },
-            {
-              roleId: "manager",
-              roleName: "Manager",
-              hasAccess: true,
-              permissions: ["read", "write"],
-              userCount: 12,
-              lastAccessed: "2024-01-19T16:30:00Z",
-            },
-            {
-              roleId: "user",
-              roleName: "Regular User",
-              hasAccess: true,
-              permissions: ["read"],
-              userCount: 150,
-              lastAccessed: "2024-01-20T11:45:00Z",
-            },
-            {
-              roleId: "guest",
-              roleName: "Guest",
-              hasAccess: false,
-              permissions: [],
-              userCount: 0,
-            },
-          ],
-        };
-        
-        setRoute(dummyRoute);
+        if (data.success && data.data) {
+          const routeData = data.data;
+          
+          // Transform data dari API ke format yang dibutuhkan UI
+          const transformedRoute: RouteDetail = {
+            id: routeData.id.toString(),
+            path: routeData.path,
+            method: routeData.method,
+            featureName: routeData.feature?.name || 'Unknown Feature',
+            featureId: routeData.featureId?.toString() || '',
+            description: `Route ${routeData.method || 'ALL'} ${routeData.path}`,
+            isActive: routeData.isActive ?? true,
+            createdAt: routeData.createdAt || new Date().toISOString(),
+            updatedAt: routeData.updatedAt || new Date().toISOString(),
+            createdBy: 'System', // TODO: Ambil dari data user yang membuat
+            policies: [], // TODO: Implementasi policies jika diperlukan
+            roles: [], // TODO: Implementasi role access jika diperlukan
+          };
+          
+          setRoute(transformedRoute);
+        } else {
+          console.error('Failed to load route detail:', data.message);
+        }
       } catch (error) {
         console.error("Error loading route detail:", error);
       } finally {

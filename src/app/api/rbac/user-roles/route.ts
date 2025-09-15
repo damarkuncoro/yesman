@@ -1,88 +1,120 @@
 import { NextRequest, NextResponse } from "next/server";
 import { userRoleService } from "@/services";
-import { authorizationMiddleware } from "@/middleware/authorizationMiddleware";
+import { withFeature, getUserFromRequest } from "@/lib/withFeature";
+import { z } from "zod";
+
+// Schema validasi untuk assign role
+const assignRoleSchema = z.object({
+  userId: z.number().int().positive("User ID harus berupa angka positif"),
+  roleId: z.number().int().positive("Role ID harus berupa angka positif")
+});
 
 /**
- * POST /api/rbac/user-roles
- * Assign role ke user
+ * Handler untuk assign role ke user
+ * Memerlukan permission 'user_management' dengan action 'update'
  */
-export async function POST(request: NextRequest) {
+async function handleAssignRole(request: NextRequest): Promise<NextResponse> {
   try {
-    // Authorization check - hanya admin yang bisa assign role
-    const authResult = await authorizationMiddleware.authorize(request, {
-      requiredRoles: ['admin']
-    });
+    const authenticatedUser = getUserFromRequest(request);
+    console.log('Authenticated user assigning role:', authenticatedUser);
     
-    if (authResult instanceof NextResponse) {
-      return authResult; // Return error response
-    }
-
+    // Parse dan validasi request body
     const body = await request.json();
-    const userRole = await userRoleService.assignRole(body);
+    const validatedData = assignRoleSchema.parse(body);
+    
+    // Assign role ke user
+    const userRole = await userRoleService.assignRole(validatedData);
     
     return NextResponse.json({
       success: true,
-      data: userRole,
+      data: {
+        userRole,
+      },
       message: 'Role berhasil di-assign ke user'
     }, { status: 201 });
+    
   } catch (error) {
-    console.error('Error assigning role:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        message: error instanceof Error ? error.message : 'Terjadi kesalahan saat assign role' 
-      },
-      { status: 400 }
-    );
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({
+        success: false,
+        message: "Data tidak valid",
+        errors: error.issues,
+      }, { status: 400 });
+    }
+    
+    if (error instanceof Error) {
+      return NextResponse.json({
+        success: false,
+        message: error.message,
+      }, { status: 400 });
+    }
+    
+    console.error('Assign role error:', error);
+    return NextResponse.json({
+      success: false,
+      message: "Terjadi kesalahan saat assign role"
+    }, { status: 500 });
   }
 }
 
+// Schema validasi untuk remove role
+const removeRoleSchema = z.object({
+  userId: z.number().int().positive("User ID harus berupa angka positif"),
+  roleId: z.number().int().positive("Role ID harus berupa angka positif")
+});
+
 /**
- * DELETE /api/rbac/user-roles
- * Remove role dari user
+ * Handler untuk remove role dari user
+ * Memerlukan permission 'user_management' dengan action 'update'
  */
-export async function DELETE(request: NextRequest) {
+async function handleRemoveRole(request: NextRequest): Promise<NextResponse> {
   try {
-    // Authorization check - hanya admin yang bisa remove role
-    const authResult = await authorizationMiddleware.authorize(request, {
-      requiredRoles: ['admin']
-    });
+    const authenticatedUser = getUserFromRequest(request);
+    console.log('Authenticated user removing role:', authenticatedUser);
     
-    if (authResult instanceof NextResponse) {
-      return authResult; // Return error response
-    }
-
+    // Parse dan validasi request body
     const body = await request.json();
-    const { userId, roleId } = body;
+    const validatedData = removeRoleSchema.parse(body);
     
-    if (!userId || !roleId) {
-      return NextResponse.json(
-        { success: false, message: 'userId dan roleId harus diisi' },
-        { status: 400 }
-      );
-    }
-
-    const removed = await userRoleService.removeRole(userId, roleId);
+    // Remove role dari user
+    const removed = await userRoleService.removeRole(validatedData.userId, validatedData.roleId);
     
     if (removed) {
       return NextResponse.json({
         success: true,
         message: 'Role berhasil di-remove dari user'
-      });
+      }, { status: 200 });
     } else {
-      return NextResponse.json(
-        { success: false, message: 'Gagal remove role dari user' },
-        { status: 500 }
-      );
+      return NextResponse.json({
+        success: false,
+        message: 'Gagal remove role dari user'
+      }, { status: 500 });
     }
+    
   } catch (error) {
-    console.error('Error removing role:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        message: error instanceof Error ? error.message : 'Terjadi kesalahan saat remove role' 
-      },
-      { status: 400 }
-    );
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({
+        success: false,
+        message: "Data tidak valid",
+        errors: error.issues,
+      }, { status: 400 });
+    }
+    
+    if (error instanceof Error) {
+      return NextResponse.json({
+        success: false,
+        message: error.message,
+      }, { status: 400 });
+    }
+    
+    console.error('Remove role error:', error);
+    return NextResponse.json({
+      success: false,
+      message: "Terjadi kesalahan saat remove role"
+    }, { status: 500 });
   }
 }
+
+// Export handlers dengan withFeature wrapper untuk otorisasi
+export const POST = withFeature({ feature: 'user_management', action: 'update' })(handleAssignRole);
+export const DELETE = withFeature({ feature: 'user_management', action: 'update' })(handleRemoveRole);
