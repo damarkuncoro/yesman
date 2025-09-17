@@ -593,7 +593,7 @@ export function RouteCreateEditTab({
                     <div className="space-y-2">
                       {(field.value || []).map((policy, index) => (
                         <div
-                          key={index}
+                          key={`policy-${index}-${policy.name || 'unnamed'}`}
                           className="flex items-center justify-between p-3 border rounded-lg"
                         >
                           <div className="flex-1">

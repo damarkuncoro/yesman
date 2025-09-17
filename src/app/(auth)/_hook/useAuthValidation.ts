@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
+import { toast } from 'sonner'
 
 /**
  * Interface untuk aturan validasi
@@ -159,16 +160,58 @@ export const useAuthValidation = (config: ValidationConfig) => {
     return Object.values(errors).some(error => error && error.trim() !== '')
   }, [errors])
 
+  /**
+   * Method untuk menampilkan toast notification untuk error validasi
+   * @param errors - Object berisi error messages
+   */
+  const showValidationToast = useCallback((errors: { [fieldName: string]: string }) => {
+    const errorMessages = Object.values(errors).filter(error => error && error.trim() !== '')
+    if (errorMessages.length > 0) {
+      // Tampilkan error pertama sebagai toast
+      toast.error(errorMessages[0])
+    }
+  }, [])
+
+  /**
+   * Method untuk menampilkan toast success untuk validasi berhasil
+   * @param message - Pesan success yang akan ditampilkan
+   */
+  const showSuccessToast = useCallback((message: string) => {
+    toast.success(message)
+  }, [])
+
+  /**
+   * Method untuk memvalidasi semua field dalam form data dengan toast notification
+   * @param formData - Data form yang akan divalidasi
+   * @param showToast - Apakah menampilkan toast untuk error (default: true)
+   * @returns Hasil validasi dengan status dan errors
+   */
+  const validateFormWithToast = useCallback((
+    formData: { [fieldName: string]: string }, 
+    showToast: boolean = true
+  ): ValidationResult => {
+    const result = validateForm(formData)
+    
+    if (!result.isValid && showToast) {
+      showValidationToast(result.errors)
+    }
+    
+    return result
+  }, [validateForm, showValidationToast])
+
   return {
     errors,
     touched,
     hasErrors,
     validateField,
     validateForm,
+    validateFormWithToast,
     handleFieldChange,
     handleFieldBlur,
     resetValidation,
-    getFieldError
+    getFieldError,
+    showValidationToast,
+    showSuccessToast
   }
 }
 

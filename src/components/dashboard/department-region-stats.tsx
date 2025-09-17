@@ -140,7 +140,7 @@ export function DepartmentRegionStats({ className = '' }: DepartmentRegionStatsP
         <CardContent>
           <div className="space-y-4">
             {[...Array(5)].map((_, index) => (
-              <div key={index} className="flex items-center space-x-4 animate-pulse">
+              <div key={`dept-loading-${index}`} className="flex items-center space-x-4 animate-pulse">
                 <div className="h-4 bg-gray-200 rounded w-1/4"></div>
                 <div className="h-4 bg-gray-200 rounded w-1/6"></div>
                 <div className="h-4 bg-gray-200 rounded w-1/6"></div>

@@ -31,7 +31,14 @@ export function LoginForm({
   const { isLoading, error, success, handleSubmit, setError, resetState } = useAuthForm()
   
   // Custom hook untuk validasi form
-  const { validateForm, validateField, handleFieldChange, errors, touched } = useAuthValidation({
+  const { 
+    validateFormWithToast, 
+    validateField, 
+    handleFieldChange, 
+    errors, 
+    touched, 
+    showSuccessToast 
+  } = useAuthValidation({
     email: authValidationRules.email,
     password: authValidationRules.password
   })
@@ -56,19 +63,21 @@ export function LoginForm({
    const onSubmit = async (e: React.FormEvent) => {
      e.preventDefault()
      
-     // Validasi form sebelum submit
-     const validation = validateForm({
+     // Validasi form sebelum submit dengan toast notification
+     const validation = validateFormWithToast({
        email: formData.email,
        password: formData.password
      })
      if (!validation.isValid) {
-       setError('Mohon perbaiki kesalahan pada form')
        return
      }
 
      await handleSubmit(async () => {
        // Gunakan AuthContext untuk login yang akan menyimpan token ke localStorage
        await login(formData.email, formData.password)
+       
+       // Tampilkan success toast
+       showSuccessToast('Login berhasil!')
        
        // Redirect setelah login berhasil
        redirectAfterLogin()

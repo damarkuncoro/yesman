@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/shadcn/ui/button';
 import { Badge } from '@/components/shadcn/ui/badge';
 import {
@@ -16,7 +17,7 @@ import { IconPlus, IconEdit, IconEye, IconTrash } from '@tabler/icons-react';
 
 // Interface untuk Policy ABAC
 interface Policy {
-  id: string;
+  id: number;
   name: string;
   feature: string;
   attribute: string;
@@ -29,8 +30,8 @@ interface Policy {
 
 interface PolicyListTabProps {
   onCreatePolicy: () => void;
-  onEditPolicy: (policyId: string) => void;
-  onViewDetail: (policyId: string) => void;
+  onEditPolicy: (policyId: number) => void;
+  onViewDetail: (policyId: number) => void;
 }
 
 /**
@@ -45,89 +46,112 @@ export default function PolicyListTab({
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Mock data untuk policy ABAC
-  const mockPolicies: Policy[] = [
-    {
-      id: '1',
-      name: 'Finance Payroll Access',
-      feature: 'payroll',
-      attribute: 'department',
-      operator: '==',
-      value: 'Finance',
-      isActive: true,
-      createdAt: '2024-01-15',
-      updatedAt: '2024-01-20',
-    },
-    {
-      id: '2',
-      name: 'Senior Article Management',
-      feature: 'article_management',
-      attribute: 'level',
-      operator: '>=',
-      value: '3',
-      isActive: true,
-      createdAt: '2024-01-16',
-      updatedAt: '2024-01-21',
-    },
-    {
-      id: '3',
-      name: 'HR Employee Access',
-      feature: 'employee_management',
-      attribute: 'department',
-      operator: 'in',
-      value: 'HR,Management',
-      isActive: true,
-      createdAt: '2024-01-17',
-      updatedAt: '2024-01-22',
-    },
-    {
-      id: '4',
-      name: 'Regional Manager Access',
-      feature: 'regional_reports',
-      attribute: 'region',
-      operator: '==',
-      value: 'Jakarta',
-      isActive: false,
-      createdAt: '2024-01-18',
-      updatedAt: '2024-01-23',
-    },
-    {
-      id: '5',
-      name: 'Executive Dashboard',
-      feature: 'executive_dashboard',
-      attribute: 'level',
-      operator: '>',
-      value: '5',
-      isActive: true,
-      createdAt: '2024-01-19',
-      updatedAt: '2024-01-24',
-    },
-  ];
+
 
   /**
-   * Simulasi fetch data policies
+   * Fetch data policies dari database
    */
   useEffect(() => {
-    const fetchPolicies = async () => {
+    const fetchPoliciesFromAllFeatures = async () => {
       setIsLoading(true);
-      // Simulasi API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setPolicies(mockPolicies);
-      setIsLoading(false);
+      try {
+        // Step 1: Ambil daftar semua features
+        const featuresResponse = await fetch('/api/v1/rbac/features');
+        
+        if (!featuresResponse.ok) {
+          throw new Error(`HTTP ${featuresResponse.status}: Failed to fetch features`);
+        }
+        
+        const featuresResult = await featuresResponse.json();
+        
+        if (!featuresResult.success || !featuresResult.data?.features) {
+          throw new Error('Invalid features response format');
+        }
+        
+        const features = featuresResult.data.features;
+        let allPolicies: Policy[] = [];
+        
+        // Step 2: Ambil policies untuk setiap feature
+        for (const feature of features) {
+          try {
+            const policiesResponse = await fetch(`/api/v1/abac/policies?featureId=${feature.id}`);
+            
+            if (policiesResponse.ok) {
+              const policiesResult = await policiesResponse.json();
+              
+              if (policiesResult.policies && Array.isArray(policiesResult.policies)) {
+                // Transform data untuk match dengan interface Policy
+                const transformedPolicies: Policy[] = policiesResult.policies.map((policy: any) => ({
+                  id: policy.id,
+                  name: `Policy for ${feature.name}`,
+                  feature: feature.name,
+                  attribute: policy.attribute,
+                  operator: policy.operator,
+                  value: policy.value,
+                  isActive: true, // Default karena API belum mengembalikan isActive
+                  createdAt: policy.createdAt || new Date().toISOString(),
+                  updatedAt: policy.updatedAt || new Date().toISOString(),
+                }));
+                
+                allPolicies = [...allPolicies, ...transformedPolicies];
+              }
+            }
+          } catch (featureError) {
+            console.warn(`Error fetching policies for feature ${feature.name}:`, featureError);
+            // Continue dengan feature lainnya
+          }
+        }
+        
+        setPolicies(allPolicies);
+        
+      } catch (error) {
+        console.error('Error fetching policies from all features:', error);
+        setPolicies([]);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    fetchPolicies();
+    fetchPoliciesFromAllFeatures();
   }, []);
 
   /**
    * Handler untuk delete policy
    * @param policyId - ID policy yang akan dihapus
    */
-  const handleDeletePolicy = async (policyId: string) => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus policy ini?')) {
-      // Simulasi delete API call
-      setPolicies(prev => prev.filter(policy => policy.id !== policyId));
-    }
+  const handleDeletePolicy = async (policyId: number) => {
+    // Konfirmasi dengan toast
+    toast('Konfirmasi Hapus', {
+      description: 'Apakah Anda yakin ingin menghapus policy ini?',
+      action: {
+        label: 'Hapus',
+        onClick: async () => {
+          try {
+            const response = await fetch(`/api/v1/abac/policies/${policyId}`, {
+              method: 'DELETE',
+            });
+            
+            if (response.ok) {
+              // Remove dari state jika berhasil dihapus
+              setPolicies(prev => prev.filter(policy => policy.id !== policyId));
+              toast.success('Policy berhasil dihapus');
+            } else {
+              console.error('Failed to delete policy');
+              toast.error('Gagal menghapus policy. Silakan coba lagi.');
+            }
+          } catch (error) {
+            console.error('Error deleting policy:', error);
+            toast.error('Terjadi error saat menghapus policy.');
+          }
+        }
+      },
+      cancel: {
+        label: 'Batal',
+        onClick: () => {
+          toast.dismiss();
+        }
+      }
+    });
   };
 
   /**

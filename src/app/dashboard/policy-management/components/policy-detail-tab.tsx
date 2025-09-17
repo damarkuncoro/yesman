@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/shadcn/ui/button';
 import { Badge } from '@/components/shadcn/ui/badge';
 import {
@@ -16,7 +17,7 @@ import { IconArrowLeft, IconEdit, IconShield, IconUsers, IconClock } from '@tabl
 
 // Interface untuk Policy Detail
 interface PolicyDetail {
-  id: string;
+  id: number;
   name: string;
   description: string;
   feature: string;
@@ -33,7 +34,7 @@ interface PolicyDetail {
 }
 
 interface AffectedUser {
-  id: string;
+  id: number;
   name: string;
   email: string;
   department: string;
@@ -43,16 +44,16 @@ interface AffectedUser {
 }
 
 interface RelatedPolicy {
-  id: string;
+  id: number;
   name: string;
   feature: string;
   isActive: boolean;
 }
 
 interface PolicyDetailTabProps {
-  policyId: string | null;
+  policyId: number | null;
   onBack: () => void;
-  onEdit: (policyId: string) => void;
+  onEdit: (policyId: number) => void;
 }
 
 /**
@@ -68,86 +69,62 @@ export default function PolicyDetailTab({
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'related'>('overview');
 
-  // Mock data untuk policy detail
-  const mockPolicyDetail: PolicyDetail = {
-    id: '1',
-    name: 'Finance Payroll Access',
-    description: 'Policy untuk memberikan akses payroll kepada department Finance. Policy ini memastikan hanya karyawan Finance yang dapat mengakses sistem payroll.',
-    feature: 'payroll',
-    attribute: 'department',
-    operator: '==',
-    value: 'Finance',
-    isActive: true,
-    createdAt: '2024-01-15T10:30:00Z',
-    updatedAt: '2024-01-20T14:45:00Z',
-    createdBy: 'Admin System',
-    updatedBy: 'John Doe',
-    affectedUsers: [
-      {
-        id: '1',
-        name: 'Alice Johnson',
-        email: 'alice.johnson@company.com',
-        department: 'Finance',
-        level: 4,
-        region: 'Jakarta',
-        hasAccess: true,
-      },
-      {
-        id: '2',
-        name: 'Bob Smith',
-        email: 'bob.smith@company.com',
-        department: 'Finance',
-        level: 3,
-        region: 'Surabaya',
-        hasAccess: true,
-      },
-      {
-        id: '3',
-        name: 'Carol Brown',
-        email: 'carol.brown@company.com',
-        department: 'HR',
-        level: 4,
-        region: 'Jakarta',
-        hasAccess: false,
-      },
-      {
-        id: '4',
-        name: 'David Wilson',
-        email: 'david.wilson@company.com',
-        department: 'IT',
-        level: 5,
-        region: 'Bandung',
-        hasAccess: false,
-      },
-    ],
-    relatedPolicies: [
-      {
-        id: '2',
-        name: 'Senior Article Management',
-        feature: 'article_management',
-        isActive: true,
-      },
-      {
-        id: '3',
-        name: 'HR Employee Access',
-        feature: 'employee_management',
-        isActive: true,
-      },
-    ],
-  };
+  // Tidak menggunakan mock data - semua data dari database
 
   /**
-   * Load policy detail data
+   * Load policy detail data dari database
    */
   useEffect(() => {
-    if (policyId) {
+    const fetchPolicyDetail = async () => {
+      if (!policyId) return;
+      
       setIsLoading(true);
-      // Simulasi API call
-      setTimeout(() => {
-        setPolicyDetail(mockPolicyDetail);
+      try {
+        const response = await fetch(`/api/v1/abac/policies/${policyId}`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: Failed to fetch policy detail`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          // Transform data untuk match dengan interface PolicyDetail
+          const transformedPolicy: PolicyDetail = {
+            id: result.data.id,
+            name: `Policy for ${result.data.feature}`,
+            description: `Policy untuk memberikan akses ${result.data.feature} berdasarkan ${result.data.attribute}`,
+            feature: result.data.feature,
+            attribute: result.data.attribute,
+            operator: result.data.operator,
+            value: result.data.value,
+            isActive: result.data.isActive,
+            createdAt: result.data.createdAt,
+            updatedAt: result.data.updatedAt,
+            createdBy: 'System',
+            updatedBy: 'System',
+            // Data kosong untuk affected users dan related policies
+            // TODO: Implement real API endpoints untuk data ini
+            affectedUsers: [],
+            relatedPolicies: [],
+          };
+          
+          setPolicyDetail(transformedPolicy);
+        } else {
+          console.error('Failed to fetch policy detail:', result.message);
+          toast.error('Gagal memuat detail policy');
+          setPolicyDetail(null);
+        }
+      } catch (error) {
+        console.error('Error fetching policy detail:', error);
+        toast.error('Terjadi error saat memuat detail policy');
+        setPolicyDetail(null);
+      } finally {
         setIsLoading(false);
-      }, 1000);
-    }
+      }
+    };
+    
+    fetchPolicyDetail();
   }, [policyId]);
 
   /**

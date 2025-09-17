@@ -92,7 +92,7 @@ class DebugLogger {
     const startTime = Date.now()
     const requestId = context.requestId || this.generateRequestId()
     
-    this.log({ ...context, requestId }, `🚀 START: ${message}`)
+    this.log({ ...context, requestId }, `\n🚀 START: ${message}`)
 
     try {
       const result = fn()

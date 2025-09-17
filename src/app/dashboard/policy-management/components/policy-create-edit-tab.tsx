@@ -7,7 +7,6 @@ import * as z from 'zod';
 import { Button } from '@/components/shadcn/ui/button';
 import { Input } from '@/components/shadcn/ui/input';
 import { Label } from '@/components/shadcn/ui/label';
-import { Textarea } from '@/components/shadcn/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -16,24 +15,18 @@ import {
   SelectValue,
 } from '@/components/shadcn/ui/select';
 import { Card, CardContent, CardHeader } from '@/components/shadcn/ui/card';
-import { Switch } from '@/components/shadcn/ui/switch';
 import { IconDeviceFloppy, IconX } from '@tabler/icons-react';
+import { createPolicySchema } from '@/db/schema';
+import type { Feature, Policy } from '@/db/schema';
+import { toast } from 'sonner';
 
-// Schema validasi untuk form policy
-const policySchema = z.object({
-  name: z.string().min(1, 'Nama policy harus diisi'),
-  description: z.string().optional(),
-  feature: z.string().min(1, 'Feature harus dipilih'),
-  attribute: z.string().min(1, 'Attribute harus dipilih'),
-  operator: z.string().min(1, 'Operator harus dipilih'),
-  value: z.string().min(1, 'Value harus diisi'),
-  isActive: z.boolean(),
-});
+// Schema validasi untuk form policy (menggunakan schema dari database)
+const policyFormSchema = createPolicySchema;
 
-type PolicyFormData = z.infer<typeof policySchema>;
+type PolicyFormData = z.infer<typeof policyFormSchema>;
 
 interface PolicyCreateEditTabProps {
-  policyId?: string | null;
+  policyId?: number | null;
   isEditMode?: boolean;
   onSuccess?: () => void;
   onCancel?: () => void;
@@ -51,51 +44,35 @@ export default function PolicyCreateEditTab({
 }: PolicyCreateEditTabProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [features, setFeatures] = useState<Feature[]>([]);
+  const [isLoadingFeatures, setIsLoadingFeatures] = useState(true);
+  const [policyData, setPolicyData] = useState<Policy | null>(null);
 
-  // Daftar features yang tersedia
-  const availableFeatures = [
-    { value: 'payroll', label: 'Payroll Management' },
-    { value: 'article_management', label: 'Article Management' },
-    { value: 'employee_management', label: 'Employee Management' },
-    { value: 'regional_reports', label: 'Regional Reports' },
-    { value: 'executive_dashboard', label: 'Executive Dashboard' },
-    { value: 'user_management', label: 'User Management' },
-    { value: 'role_management', label: 'Role Management' },
-    { value: 'route_management', label: 'Route Management' },
-  ];
-
-  // Daftar attributes yang tersedia
+  // Daftar attributes yang tersedia (sesuai schema database)
   const availableAttributes = [
     { value: 'department', label: 'Department' },
-    { value: 'level', label: 'Level' },
     { value: 'region', label: 'Region' },
-    { value: 'position', label: 'Position' },
-    { value: 'experience_years', label: 'Experience Years' },
-    { value: 'team', label: 'Team' },
-  ];
+    { value: 'level', label: 'Level' },
+  ] as const;
 
-  // Daftar operators yang tersedia
+  // Daftar operators yang tersedia (sesuai schema database)
   const availableOperators = [
     { value: '==', label: 'Equals (==)' },
     { value: '!=', label: 'Not Equals (!=)' },
     { value: '>', label: 'Greater Than (>)' },
-    { value: '<', label: 'Less Than (<)' },
     { value: '>=', label: 'Greater Than or Equal (>=)' },
+    { value: '<', label: 'Less Than (<)' },
     { value: '<=', label: 'Less Than or Equal (<=)' },
     { value: 'in', label: 'In (comma separated)' },
-    { value: 'not_in', label: 'Not In (comma separated)' },
-  ];
+  ] as const;
 
   const form = useForm<PolicyFormData>({
-    resolver: zodResolver(policySchema),
+    resolver: zodResolver(policyFormSchema),
     defaultValues: {
-      name: '',
-      description: '',
-      feature: '',
-      attribute: '',
-      operator: '',
+      featureId: 0,
+      attribute: 'department',
+      operator: '==',
       value: '',
-      isActive: true,
     },
   });
 
@@ -108,9 +85,31 @@ export default function PolicyCreateEditTab({
     formState: { errors },
   } = form;
 
-  const watchedFeature = watch('feature');
+  const watchedFeatureId = watch('featureId');
   const watchedAttribute = watch('attribute');
   const watchedOperator = watch('operator');
+
+  /**
+   * Load features dari API
+   */
+  useEffect(() => {
+    const fetchFeatures = async () => {
+      try {
+        const response = await fetch('/api/v1/rbac/features');
+        const data = await response.json();
+        if (data.success) {
+          setFeatures(data.data.features);
+        }
+      } catch (error) {
+        console.error('Error fetching features:', error);
+        toast.error('Gagal memuat daftar features');
+      } finally {
+        setIsLoadingFeatures(false);
+      }
+    };
+
+    fetchFeatures();
+  }, []);
 
   /**
    * Load data policy jika dalam mode edit
@@ -118,22 +117,34 @@ export default function PolicyCreateEditTab({
   useEffect(() => {
     if (isEditMode && policyId) {
       setIsLoading(true);
-      // Simulasi fetch data policy
-      setTimeout(() => {
-        // Mock data untuk edit
-        const mockPolicyData = {
-          name: 'Finance Payroll Access',
-          description: 'Policy untuk akses payroll department Finance',
-          feature: 'payroll',
-          attribute: 'department',
-          operator: '==',
-          value: 'Finance',
-          isActive: true,
-        };
-        
-        reset(mockPolicyData);
-        setIsLoading(false);
-      }, 1000);
+      const fetchPolicy = async () => {
+        try {
+          const response = await fetch(`/api/v1/abac/policies/${policyId}`);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const result = await response.json();
+          if (result.success && result.data) {
+            const policy = result.data;
+            setPolicyData(policy);
+            reset({
+              featureId: policy.featureId,
+              attribute: policy.attribute,
+              operator: policy.operator,
+              value: policy.value,
+            });
+          } else {
+            toast.error('Policy tidak ditemukan');
+          }
+        } catch (error) {
+          console.error('Error fetching policy:', error);
+          toast.error('Gagal memuat data policy');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchPolicy();
     }
   }, [isEditMode, policyId, reset]);
 
@@ -144,15 +155,30 @@ export default function PolicyCreateEditTab({
     setIsSaving(true);
     
     try {
-      // Simulasi API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const url = isEditMode && policyId 
+        ? `/api/v1/abac/policies/${policyId}`
+        : '/api/v1/abac/policies';
       
-      console.log('Policy data:', data);
+      const method = isEditMode ? 'PUT' : 'POST';
       
-      // Panggil callback success
-      onSuccess?.();
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      
+      if (response.ok) {
+        toast.success(isEditMode ? 'Policy berhasil diupdate' : 'Policy berhasil dibuat');
+        onSuccess?.();
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || 'Gagal menyimpan policy');
+      }
     } catch (error) {
       console.error('Error saving policy:', error);
+      toast.error('Terjadi kesalahan saat menyimpan policy');
     } finally {
       setIsSaving(false);
     }
@@ -229,50 +255,27 @@ export default function PolicyCreateEditTab({
       <Card>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Nama Policy */}
-            <div className="space-y-2">
-              <Label htmlFor="name">Nama Policy *</Label>
-              <Input
-                id="name"
-                {...register('name')}
-                placeholder="Masukkan nama policy yang deskriptif"
-              />
-              {errors.name && (
-                <p className="text-sm text-red-600">{errors.name.message}</p>
-              )}
-            </div>
-
-            {/* Deskripsi */}
-            <div className="space-y-2">
-              <Label htmlFor="description">Deskripsi</Label>
-              <Textarea
-                id="description"
-                {...register('description')}
-                placeholder="Deskripsi singkat tentang policy ini"
-                rows={3}
-              />
-            </div>
-
             {/* Feature Selection */}
             <div className="space-y-2">
-              <Label htmlFor="feature">Feature *</Label>
+              <Label htmlFor="featureId">Feature *</Label>
               <Select
-                value={watchedFeature}
-                onValueChange={(value) => setValue('feature', value)}
+                value={watchedFeatureId?.toString()}
+                onValueChange={(value) => setValue('featureId', parseInt(value))}
+                disabled={isLoadingFeatures}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Pilih feature yang akan dikontrol" />
+                  <SelectValue placeholder={isLoadingFeatures ? "Memuat features..." : "Pilih feature yang akan dikontrol"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableFeatures.map((feature) => (
-                    <SelectItem key={feature.value} value={feature.value}>
-                      {feature.label}
+                  {features.map((feature) => (
+                    <SelectItem key={feature.id} value={feature.id.toString()}>
+                      {feature.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.feature && (
-                <p className="text-sm text-red-600">{errors.feature.message}</p>
+              {errors.featureId && (
+                <p className="text-sm text-red-600">{errors.featureId.message}</p>
               )}
             </div>
 
@@ -281,7 +284,7 @@ export default function PolicyCreateEditTab({
               <Label htmlFor="attribute">Attribute *</Label>
               <Select
                 value={watchedAttribute}
-                onValueChange={(value) => setValue('attribute', value)}
+                onValueChange={(value) => setValue('attribute', value as "department" | "region" | "level")}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih attribute pengguna" />
@@ -304,7 +307,7 @@ export default function PolicyCreateEditTab({
               <Label htmlFor="operator">Operator *</Label>
               <Select
                 value={watchedOperator}
-                onValueChange={(value) => setValue('operator', value)}
+                onValueChange={(value) => setValue('operator', value as "==" | "!=" | ">" | ">=" | "<" | "<=" | "in")}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih operator perbandingan" />
@@ -336,15 +339,7 @@ export default function PolicyCreateEditTab({
               )}
             </div>
 
-            {/* Status Active */}
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="isActive"
-                checked={watch('isActive')}
-                onCheckedChange={(checked) => setValue('isActive', checked)}
-              />
-              <Label htmlFor="isActive">Policy Aktif</Label>
-            </div>
+
 
             {/* Action Buttons */}
             <div className="flex justify-end space-x-4 pt-6">

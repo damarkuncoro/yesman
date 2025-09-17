@@ -10,6 +10,7 @@ export { UserRoleAssignmentService, userRoleAssignmentService } from './userRole
 import { userCrudService } from './userCrudService';
 import { userProfileService } from './userProfileService';
 import { userRoleAssignmentService } from './userRoleAssignmentService';
+import { userRepository } from '@/repositories';
 import type { User, UserCreateInput, SanitizedUser } from './types';
 
 /**
@@ -130,6 +131,45 @@ export class UserService {
 
   async count(): Promise<number> {
     return userCrudService.count();
+  }
+
+  /**
+   * Update password user
+   * @param userId - ID user yang akan diupdate
+   * @param passwordHash - Password hash yang baru
+   */
+  async updateUserPassword(userId: number, passwordHash: string): Promise<boolean> {
+    try {
+      console.log('🔍 UserService.updateUserPassword - Input:', { userId, passwordHashLength: passwordHash?.length });
+      
+      // Validasi input
+      if (!userId || userId <= 0) {
+        throw new Error('Invalid user ID');
+      }
+      
+      if (!passwordHash || typeof passwordHash !== 'string') {
+        throw new Error('Invalid password hash');
+      }
+      
+      console.log('🔍 UserService.updateUserPassword - Calling repository update');
+      
+      // Langsung update ke repository karena userCrudService tidak support passwordHash
+      const updatedUser = await userRepository.update(userId, { passwordHash });
+      
+      console.log('🔍 UserService.updateUserPassword - Repository result:', { 
+        hasResult: !!updatedUser,
+        userId: updatedUser?.id 
+      });
+      
+      const success = updatedUser !== null;
+      console.log('🔍 UserService.updateUserPassword - Final result:', success);
+      
+      return success;
+    } catch (error) {
+      console.error('❌ Error in UserService.updateUserPassword:', error);
+      console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      throw error;
+    }
   }
 }
 

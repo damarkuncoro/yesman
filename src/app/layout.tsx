@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { Toaster } from "sonner";
 import "./globals.css";
 // app/layout.tsx
 import { routeDiscovery } from "@/services/discovery";
@@ -33,6 +34,13 @@ export default function RootLayout({
         <AuthProvider>
           {children}
         </AuthProvider>
+        <Toaster 
+          position="top-right"
+          richColors
+          closeButton
+          expand={false}
+          duration={4000}
+        />
       </body>
     </html>
   );

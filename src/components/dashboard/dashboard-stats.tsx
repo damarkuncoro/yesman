@@ -165,7 +165,7 @@ export function DashboardStats({ className = '' }: DashboardStatsProps) {
     return (
       <div className={`grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 ${className}`}>
         {[...Array(4)].map((_, index) => (
-          <Card key={index} className="animate-pulse">
+          <Card key={`loading-skeleton-${index}`} className="animate-pulse">
             <CardHeader>
               <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
               <div className="h-8 bg-gray-200 rounded w-3/4"></div>

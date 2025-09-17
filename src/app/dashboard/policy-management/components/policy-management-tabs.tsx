@@ -12,14 +12,14 @@ import PolicyCreateEditTab from "./policy-create-edit-tab"
  */
 export function PolicyManagementTabs() {
   const [activeTab, setActiveTab] = useState("policy-list")
-  const [selectedPolicyId, setSelectedPolicyId] = useState<string | null>(null)
+  const [selectedPolicyId, setSelectedPolicyId] = useState<number | null>(null)
   const [editMode, setEditMode] = useState<'create' | 'edit'>('create')
 
   /**
    * Handle ketika policy dipilih dari Policy List
    * Akan switch ke Policy Detail tab
    */
-  const handlePolicySelect = (policyId: string) => {
+  const handlePolicySelect = (policyId: number) => {
     setSelectedPolicyId(policyId)
     setActiveTab("policy-detail")
   }
@@ -28,7 +28,7 @@ export function PolicyManagementTabs() {
    * Handle ketika ingin edit policy
    * Akan switch ke Policy Create/Edit tab dalam mode edit
    */
-  const handlePolicyEdit = (policyId: string) => {
+  const handlePolicyEdit = (policyId: number) => {
     setSelectedPolicyId(policyId)
     setEditMode('edit')
     setActiveTab("policy-create-edit")

@@ -80,11 +80,22 @@ export class UserRepository extends BaseRepository implements CrudRepository<Use
    */
   async update(id: number, userData: Partial<Omit<User, 'id' | 'createdAt'>>): Promise<User | undefined> {
     return this.executeWithErrorHandling('update user', async () => {
+      console.log('🔍 UserRepository.update - Input:', { id, userData });
+      
+      const updateData = { ...userData, updatedAt: new Date() };
+      console.log('🔍 UserRepository.update - Update data:', updateData);
+      
       const result = await db!.update(users)
-        .set({ ...userData, updatedAt: new Date() })
+        .set(updateData)
         .where(eq(users.id, id))
         .returning();
-      return this.getFirstResult(result);
+      
+      console.log('🔍 UserRepository.update - Result:', result);
+      
+      const firstResult = this.getFirstResult(result);
+      console.log('🔍 UserRepository.update - First result:', firstResult);
+      
+      return firstResult;
     });
   }
 

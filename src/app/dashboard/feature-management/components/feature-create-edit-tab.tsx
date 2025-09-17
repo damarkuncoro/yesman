@@ -186,6 +186,7 @@ export function FeatureCreateEditTab({
         }
       } catch (error) {
         console.error('Failed to load roles:', error);
+        toast.error('Gagal memuat daftar roles');
         
         if (isMounted) {
           // Retry logic untuk network errors
@@ -253,6 +254,7 @@ export function FeatureCreateEditTab({
             }
           } catch (error) {
             console.error('Failed to load feature detail:', error);
+            toast.error('Gagal memuat detail feature');
             if (isMounted) {
               const errorMessage = error instanceof Error ? error.message : 'Failed to load feature detail';
               toast.error(errorMessage);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/shadcn/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shadcn/ui/card";
 import { Badge } from "@/components/shadcn/ui/badge";
@@ -116,9 +117,11 @@ export function RouteDetailTab({
           setRoute(transformedRoute);
         } else {
           console.error('Failed to load route detail:', data.message);
+          toast.error('Gagal memuat detail route');
         }
       } catch (error) {
         console.error("Error loading route detail:", error);
+        toast.error('Terjadi error saat memuat detail route');
       } finally {
         setIsLoading(false);
       }
@@ -344,7 +347,7 @@ export function RouteDetailTab({
                   {policy.conditions.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {policy.conditions.map((condition, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
+                        <Badge key={`condition-${index}-${condition}`} variant="outline" className="text-xs">
                           {condition}
                         </Badge>
                       ))}
@@ -406,7 +409,7 @@ export function RouteDetailTab({
                       {role.permissions.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {role.permissions.map((permission, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
+                            <Badge key={`permission-${index}-${permission}`} variant="outline" className="text-xs">
                               {permission}
                             </Badge>
                           ))}

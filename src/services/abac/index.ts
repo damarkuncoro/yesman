@@ -98,6 +98,13 @@ export class AbacService {
   }
 
   /**
+   * Mendapatkan policy berdasarkan ID
+   */
+  async getPolicyById(policyId: number) {
+    return await policyManagementService.getPolicyById(policyId);
+  }
+
+  /**
    * Mendapatkan policies berdasarkan feature
    */
   async getPoliciesByFeature(featureId: number) {

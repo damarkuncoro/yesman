@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 /**
  * Halaman Initial Setup Wizard
@@ -61,6 +62,7 @@ export default function InitialSetupPage() {
     } catch (err) {
       setError('Network error. Please check your connection.');
       console.error('Setup check error:', err);
+      toast.error('Terjadi kesalahan jaringan. Silakan periksa koneksi Anda.');
     } finally {
       setIsLoading(false);
     }
@@ -92,6 +94,7 @@ export default function InitialSetupPage() {
     } catch (err) {
       setError('Network error during setup. Please try again.');
       console.error('Setup error:', err);
+      toast.error('Terjadi kesalahan jaringan saat setup. Silakan coba lagi.');
     } finally {
       setIsSettingUp(false);
     }

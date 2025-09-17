@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/shadcn/ui/button";
 import { Input } from "@/components/shadcn/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shadcn/ui/card";
@@ -124,6 +125,7 @@ export function FeatureListTab({
         }
       } catch (error) {
         console.error('❌ Failed to load features:', error);
+        toast.error('Gagal memuat daftar features');
         
         if (isMounted) {
           // Retry logic untuk network errors
@@ -191,29 +193,43 @@ export function FeatureListTab({
   /**
    * Handler untuk delete feature dengan optimistic updates dan rollback
    */
-  const handleDelete = useCallback(async (featureId: number) => {
+  const handleDeleteFeature = useCallback(async (featureId: number) => {
     const featureToDelete = features.find(f => f.id === featureId);
     if (!featureToDelete) {
       console.error('Feature not found');
+      toast.error('Feature tidak ditemukan');
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to delete "${featureToDelete.name}"? This action cannot be undone.`)) {
-      return;
-    }
-
-    // Optimistic update - remove from UI immediately
-    const originalFeatures = [...features];
-    setFeatures(prev => prev.filter(f => f.id !== featureId));
-    
-    try {
-      await onFeatureDelete(featureId);
-    } catch (error) {
-      console.error('Error deleting feature:', error);
-      
-      // Rollback optimistic update
-      setFeatures(originalFeatures);
-    }
+    // Konfirmasi dengan toast
+    toast('Konfirmasi Hapus', {
+      description: `Apakah Anda yakin ingin menghapus "${featureToDelete.name}"? Tindakan ini tidak dapat dibatalkan.`,
+      action: {
+        label: 'Hapus',
+        onClick: async () => {
+          // Optimistic update - remove from UI immediately
+          const originalFeatures = [...features];
+          setFeatures(prev => prev.filter(f => f.id !== featureId));
+          
+          try {
+            await onFeatureDelete(featureId);
+            toast.success(`Feature "${featureToDelete.name}" berhasil dihapus`);
+          } catch (error) {
+            console.error('Error deleting feature:', error);
+            toast.error('Terjadi error saat menghapus feature');
+            
+            // Rollback optimistic update
+            setFeatures(originalFeatures);
+          }
+        }
+      },
+      cancel: {
+        label: 'Batal',
+        onClick: () => {
+          toast.dismiss();
+        }
+      }
+    });
   }, [features, onFeatureDelete]);
 
   if (isLoading) {
@@ -318,7 +334,7 @@ export function FeatureListTab({
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDelete(feature.id);
+                            handleDeleteFeature(feature.id);
                           }}
                         >
                           <IconTrash size={16} />
